@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Реєстрація{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('login') }}">← Назад</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Реєстрація</h2>
+    <form method="POST">
+        <label>Юзернейм</label>
+        <input type="text" name="username" required>
+        <label>Email</label>
+        <input type="email" name="email" required>
+        <label>Пароль</label>
+        <input type="password" name="password" required>
+        <button class="btn" type="submit">Зареєструватись</button>
+    </form>
+    <p>Вже є акаунт? <a href="{{ url_for('login') }}">Увійти</a></p>
+</div>
+{% endblock %}

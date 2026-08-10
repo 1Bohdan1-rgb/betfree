@@ -1,0 +1,882 @@
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from datetime import datetime, timedelta
+from sqlalchemy import inspect, text
+import random
+import math
+import os
+import json
+import logging
+from pywebpush import webpush, WebPushException
+from apscheduler.schedulers.background import BackgroundScheduler
+from models import (
+    db, User, Event, EventOption, Bet, Payout, SPORT_CHOICES, SponsorSpin, SpinPrize,
+    VoucherRedemption, generate_voucher_code, PushSubscription,
+)
+
+VOUCHER_EXPIRY_WARNING_DAYS = 2
+
+REMEMBER_ME_DAYS = 30
+REMEMBER_ME_COOKIE = "remembered_username"
+SPIN_COOLDOWN_HOURS = 24
+DEFAULT_SPIN_MIN = 5
+DEFAULT_SPIN_MAX = 30
+
+# 8 секторів колеса: частки діапазону [min_reward, max_reward] і вага ймовірності
+# (переважання менших сум, останній сектор — рідкісний максимальний приз)
+SPIN_SECTOR_FRACTIONS = [0.0, 0.05, 0.12, 0.22, 0.35, 0.5, 0.7, 1.0]
+SPIN_SECTOR_WEIGHTS = [30, 22, 16, 12, 8, 6, 4, 2]
+
+
+def _round_nice(value):
+    if value >= 100:
+        return round(value / 10) * 10
+    if value >= 20:
+        return round(value / 5) * 5
+    return max(1, round(value))
+
+
+def get_spin_sectors_from_range(sponsor):
+    """Резервна логіка: рівномірний розподіл по діапазону min/max, якщо у спонсора не задано призів."""
+    min_reward = sponsor.min_reward if sponsor else DEFAULT_SPIN_MIN
+    max_reward = sponsor.max_reward if sponsor else DEFAULT_SPIN_MAX
+    span = max_reward - min_reward
+    return [_round_nice(min_reward + span * frac) for frac in SPIN_SECTOR_FRACTIONS]
+
+
+def get_wheel_sectors(sponsor):
+    """Повертає (sectors, weights), де sectors — список словників
+    {"type": "coins"|"voucher", "label": str, "logo_url": str|None, ...}, узгоджений
+    з SpinPrize спонсора, або резервний список секторів-монет за діапазоном min/max."""
+    if sponsor and sponsor.prizes:
+        sectors = []
+        weights = []
+        for prize in sponsor.prizes:
+            if prize.prize_type == "voucher":
+                logo_url = prize.sponsor_logo_url or sponsor.sponsor_logo_url
+                sectors.append({
+                    "type": "voucher",
+                    "label": f"🎁 -{prize.voucher_percent}%",
+                    "percent": prize.voucher_percent,
+                    "logo_url": logo_url,
+                    "prize_id": prize.id,
+                })
+            else:
+                amount = prize.coins_amount
+                label = str(int(amount)) if amount == int(amount) else str(amount)
+                sectors.append({"type": "coins", "label": label, "amount": amount, "logo_url": None, "prize_id": prize.id})
+            weights.append(max(1, prize.weight))
+        return sectors, weights
+
+    amounts = get_spin_sectors_from_range(sponsor)
+    sectors = [{"type": "coins", "label": str(v), "amount": v, "logo_url": None} for v in amounts]
+    return sectors, SPIN_SECTOR_WEIGHTS
+
+
+def _sector_point(angle_deg):
+    """Точка на колі (0% 0% — верхній лівий кут квадрата 0..100%), де 0deg — верх, за годинниковою."""
+    rad = math.radians(angle_deg)
+    x = 50 + 50 * math.sin(rad)
+    y = 50 - 50 * math.cos(rad)
+    return f"{x:.2f}% {y:.2f}%"
+
+
+def build_sector_clip_path(start_deg, end_deg, steps=10):
+    """clip-path polygon для сектора кола (центр + точки уздовж дуги), щоб контур
+    сектора точно повторював дугу, а не пряму хорду."""
+    points = ["50% 50%"]
+    span = end_deg - start_deg
+    for i in range(steps + 1):
+        points.append(_sector_point(start_deg + span * i / steps))
+    return "polygon(" + ", ".join(points) + ")"
+
+
+def attach_sector_geometry(sectors):
+    n = len(sectors)
+    step = 360 / n
+    for i, sector in enumerate(sectors):
+        sector["clip_path"] = build_sector_clip_path(i * step, (i + 1) * step)
+    return sectors
+
+
+def generate_unique_voucher_code():
+    for _ in range(10):
+        code = generate_voucher_code()
+        if not VoucherRedemption.query.filter_by(unique_code=code).first():
+            return code
+    raise RuntimeError("Не вдалося згенерувати унікальний код ваучера")
+
+
+app = Flask(__name__)
+app.config["SECRET_KEY"] = "change-this-in-production"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///betfree.db"
+db.init_app(app)
+
+# ---------- WEB PUSH: VAPID-ключі ----------
+# Ключі генеруються скриптом generate_vapid_keys.py в instance/ (поза git).
+# Якщо ключів ще нема — push просто вимкнений, решта застосунку працює як завжди.
+VAPID_PRIVATE_KEY_PATH = os.environ.get(
+    "VAPID_PRIVATE_KEY_PATH", os.path.join(app.instance_path, "vapid_private.pem")
+)
+VAPID_PUBLIC_KEY_PATH = os.path.join(app.instance_path, "vapid_public_key.txt")
+VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@betfree.local")
+
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+if not VAPID_PUBLIC_KEY and os.path.exists(VAPID_PUBLIC_KEY_PATH):
+    with open(VAPID_PUBLIC_KEY_PATH, "r") as f:
+        VAPID_PUBLIC_KEY = f.read().strip()
+
+PUSH_ENABLED = bool(VAPID_PUBLIC_KEY and os.path.exists(VAPID_PRIVATE_KEY_PATH))
+if not PUSH_ENABLED:
+    logging.warning(
+        "VAPID-ключі не знайдено — push-сповіщення вимкнені. "
+        "Запустіть `python generate_vapid_keys.py`, щоб їх згенерувати."
+    )
+
+
+def send_push_notification(user_id, title, body):
+    """Надсилає push усім активним підпискам користувача. Мовчки виходить,
+    якщо push не налаштовано (немає VAPID-ключів) — це не критична функція."""
+    if not PUSH_ENABLED:
+        return
+
+    subscriptions = PushSubscription.query.filter_by(user_id=user_id).all()
+    payload = json.dumps({"title": title, "body": body, "icon": "/static/icons/icon-192.png"})
+
+    for sub in subscriptions:
+        subscription_info = {
+            "endpoint": sub.endpoint,
+            "keys": {"p256dh": sub.p256dh_key, "auth": sub.auth_key},
+        }
+        try:
+            webpush(
+                subscription_info=subscription_info,
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY_PATH,
+                vapid_claims={"sub": VAPID_CLAIMS_EMAIL},
+            )
+        except WebPushException as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status in (404, 410):
+                # підписка більше не існує (юзер відписався/скинув дозвіл) — прибираємо
+                db.session.delete(sub)
+                db.session.commit()
+            else:
+                logging.warning("Не вдалося надіслати push користувачу %s: %s", user_id, exc)
+
+
+@app.route("/sw.js")
+def service_worker():
+    return app.send_static_file("sw.js")
+
+
+@app.route("/push/vapid-public-key")
+@login_required
+def push_vapid_public_key():
+    return jsonify(publicKey=VAPID_PUBLIC_KEY, enabled=PUSH_ENABLED)
+
+
+@app.route("/push/subscribe", methods=["POST"])
+@login_required
+def push_subscribe():
+    data = request.get_json(silent=True) or {}
+    endpoint = data.get("endpoint")
+    keys = data.get("keys") or {}
+    p256dh = keys.get("p256dh")
+    auth = keys.get("auth")
+
+    if not endpoint or not p256dh or not auth:
+        return jsonify(ok=False, message="Некоректні дані підписки"), 400
+
+    existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if existing:
+        existing.user_id = current_user.id
+        existing.p256dh_key = p256dh
+        existing.auth_key = auth
+    else:
+        db.session.add(PushSubscription(
+            user_id=current_user.id,
+            endpoint=endpoint,
+            p256dh_key=p256dh,
+            auth_key=auth,
+        ))
+    db.session.commit()
+    return jsonify(ok=True)
+
+
+def check_and_send_notifications():
+    """Періодична фонова перевірка (APScheduler): надсилає push, коли
+    1) ваучер юзера спливає протягом 24 годин, 2) кулдаун рулетки закінчився.
+    Прапорці *_notified / *_reminder_sent захищають від повторної відправки."""
+    if not PUSH_ENABLED:
+        return
+
+    with app.app_context():
+        now = datetime.utcnow()
+
+        expiring_vouchers = VoucherRedemption.query.filter(
+            VoucherRedemption.is_used.is_(False),
+            VoucherRedemption.expiry_reminder_sent.is_(False),
+            VoucherRedemption.expires_at > now,
+            VoucherRedemption.expires_at <= now + timedelta(hours=24),
+        ).all()
+        for voucher in expiring_vouchers:
+            percent = voucher.prize.voucher_percent if voucher.prize else "?"
+            send_push_notification(
+                voucher.user_id,
+                "Ваучер скоро згорить",
+                f"Ваучер {voucher.sponsor.sponsor_name} -{percent}% спливає "
+                f"{voucher.expires_at.strftime('%d.%m.%Y %H:%M')}",
+            )
+            voucher.expiry_reminder_sent = True
+        if expiring_vouchers:
+            db.session.commit()
+
+        ready_users = User.query.filter(
+            User.last_spin_at.isnot(None),
+            User.spin_ready_notified.is_(False),
+        ).all()
+        notified_any = False
+        for user in ready_users:
+            if user.last_spin_at + timedelta(hours=SPIN_COOLDOWN_HOURS) <= now:
+                send_push_notification(
+                    user.id, "Рулетка знову доступна!", "Ваша щоденна прокрутка вже готова 🎰"
+                )
+                user.spin_ready_notified = True
+                notified_any = True
+        if notified_any:
+            db.session.commit()
+
+
+def start_notification_scheduler():
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.add_job(check_and_send_notifications, "interval", minutes=5, id="push_notifications")
+    scheduler.start()
+    return scheduler
+
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+User.is_authenticated = property(lambda self: True)
+User.is_active = property(lambda self: True)
+User.is_anonymous = property(lambda self: False)
+User.get_id = lambda self: str(self.id)
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+# ---------- AUTH ----------
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        email = request.form["email"]
+        password = request.form["password"]
+
+        if User.query.filter_by(username=username).first():
+            flash("Юзернейм вже зайнятий")
+            return redirect(url_for("register"))
+
+        if User.query.filter_by(email=email).first():
+            flash("Ця електронна пошта вже зареєстрована")
+            return redirect(url_for("register"))
+
+        user = User(username=username, email=email, balance=100.0)  # стартовий тестовий баланс
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        flash("Реєстрація успішна, увійдіть")
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        remember = bool(request.form.get("remember_me"))
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.check_password(password):
+            login_user(user, remember=remember, duration=timedelta(days=REMEMBER_ME_DAYS))
+            response = redirect(url_for("dashboard"))
+            if remember:
+                response.set_cookie(
+                    REMEMBER_ME_COOKIE,
+                    username,
+                    max_age=REMEMBER_ME_DAYS * 24 * 60 * 60,
+                )
+            else:
+                response.delete_cookie(REMEMBER_ME_COOKIE)
+            return response
+        flash("Невірний логін або пароль")
+
+    remembered_username = request.cookies.get(REMEMBER_ME_COOKIE, "")
+    return render_template("login.html", remembered_username=remembered_username)
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
+
+
+# ---------- ПРОФІЛЬ ----------
+
+@app.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    if request.method == "POST":
+        current_user.email = request.form["email"]
+        current_user.country = request.form.get("country", "").strip() or None
+        current_user.phone = request.form.get("phone", "").strip() or None
+        db.session.commit()
+        flash("Профіль оновлено")
+        return redirect(url_for("profile"))
+
+    active_voucher_count = VoucherRedemption.query.filter(
+        VoucherRedemption.user_id == current_user.id,
+        VoucherRedemption.is_used.is_(False),
+        VoucherRedemption.expires_at > datetime.utcnow(),
+    ).count()
+
+    return render_template("profile.html", active_voucher_count=active_voucher_count)
+
+
+@app.route("/profile/deposit", methods=["POST"])
+@login_required
+def profile_deposit():
+    flash("Функція поповнення/виведення буде доступна після інтеграції платіжної системи")
+    return redirect(url_for("profile"))
+
+
+@app.route("/profile/withdraw", methods=["POST"])
+@login_required
+def profile_withdraw():
+    flash("Функція поповнення/виведення буде доступна після інтеграції платіжної системи")
+    return redirect(url_for("profile"))
+
+
+@app.route("/my-vouchers")
+@login_required
+def my_vouchers():
+    vouchers = (
+        VoucherRedemption.query.filter_by(user_id=current_user.id)
+        .order_by(VoucherRedemption.created_at.desc())
+        .all()
+    )
+    return render_template("my_vouchers.html", vouchers=vouchers)
+
+
+# ---------- АДМІН: КОРИСТУВАЧІ ----------
+
+@app.route("/admin/users")
+@login_required
+def admin_users():
+    if not current_user.is_admin:
+        flash("Тільки адмін може переглядати цю сторінку")
+        return redirect(url_for("dashboard"))
+
+    users = User.query.order_by(User.username).all()
+    return render_template("admin_users.html", users=users)
+
+
+@app.route("/admin/users/<int:user_id>/toggle-verify", methods=["POST"])
+@login_required
+def toggle_verify(user_id):
+    if not current_user.is_admin:
+        flash("Тільки адмін може виконувати цю дію")
+        return redirect(url_for("dashboard"))
+
+    user = User.query.get_or_404(user_id)
+    user.is_verified = not user.is_verified
+    db.session.commit()
+    flash(f"Статус верифікації користувача {user.username} оновлено")
+    return redirect(url_for("admin_users"))
+
+
+# ---------- РУЛЕТКА ----------
+
+@app.route("/roulette", methods=["GET", "POST"])
+@login_required
+def roulette():
+    sponsor = SponsorSpin.query.filter_by(is_active=True).order_by(SponsorSpin.id).first()
+
+    next_available_at = None
+    if current_user.last_spin_at:
+        next_available_at = current_user.last_spin_at + timedelta(hours=SPIN_COOLDOWN_HOURS)
+    can_spin = next_available_at is None or datetime.utcnow() >= next_available_at
+
+    if request.method == "POST":
+        if not can_spin:
+            return jsonify(ok=False, message="Наступна прокрутка ще не доступна"), 400
+
+        # той самий (перемішаний) порядок секторів, що бачив користувач на сторінці,
+        # інакше sector_index не відповідатиме тому, що намальовано на колесі
+        sectors = session.get("wheel_sectors")
+        weights = session.get("wheel_weights")
+        if not sectors or not weights or len(sectors) != len(weights):
+            sectors, weights = get_wheel_sectors(sponsor)
+
+        sector_index = random.choices(range(len(sectors)), weights=weights, k=1)[0]
+        chosen = sectors[sector_index]
+
+        if chosen["type"] == "voucher":
+            validity_days = sponsor.voucher_validity_days if sponsor else 7
+            voucher = VoucherRedemption(
+                user_id=current_user.id,
+                sponsor_spin_id=sponsor.id,
+                spin_prize_id=chosen.get("prize_id"),
+                unique_code=generate_unique_voucher_code(),
+                expires_at=datetime.utcnow() + timedelta(days=validity_days),
+            )
+            db.session.add(voucher)
+
+            result = dict(
+                prize_type="voucher",
+                percent=chosen["percent"],
+                promo_description=sponsor.promo_description if sponsor else None,
+                voucher_code=voucher.unique_code,
+                voucher_expires=voucher.expires_at.strftime("%d.%m.%Y"),
+            )
+        else:
+            reward = chosen["amount"]
+            current_user.balance += reward
+            result = dict(prize_type="coins", amount=reward)
+
+        current_user.last_spin_at = datetime.utcnow()
+        current_user.spin_ready_notified = False  # скидаємо, щоб наступне закінчення кулдауну знову сповістило
+        db.session.commit()
+
+        next_at = current_user.last_spin_at + timedelta(hours=SPIN_COOLDOWN_HOURS)
+
+        return jsonify(
+            ok=True,
+            sector_index=sector_index,
+            balance=current_user.balance,
+            next_available_at=next_at.isoformat() + "Z",
+            **result,
+        )
+
+    sectors, weights = get_wheel_sectors(sponsor)
+    order = list(range(len(sectors)))
+    random.shuffle(order)
+    sectors = [sectors[i] for i in order]
+    weights = [weights[i] for i in order]
+    attach_sector_geometry(sectors)
+
+    session["wheel_sectors"] = sectors
+    session["wheel_weights"] = weights
+
+    return render_template(
+        "roulette.html",
+        sponsor=sponsor,
+        sectors=sectors,
+        can_spin=can_spin,
+        next_available_at=next_available_at,
+    )
+
+
+# ---------- АДМІН: РУЛЕТКА / СПОНСОРИ ----------
+
+@app.route("/admin/roulette", methods=["GET", "POST"])
+@login_required
+def admin_roulette():
+    if not current_user.is_admin:
+        flash("Тільки адмін може переглядати цю сторінку")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        sponsor_name = request.form["sponsor_name"].strip()
+        sponsor_logo_url = request.form.get("sponsor_logo_url", "").strip() or None
+        min_reward = float(request.form["min_reward"])
+        max_reward = float(request.form["max_reward"])
+        promo_code = request.form.get("promo_code", "").strip() or None
+        promo_description = request.form.get("promo_description", "").strip() or None
+        voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
+
+        if min_reward > max_reward:
+            flash("Мінімальна винагорода не може бути більшою за максимальну")
+            return redirect(url_for("admin_roulette"))
+
+        sponsor = SponsorSpin(
+            sponsor_name=sponsor_name,
+            sponsor_logo_url=sponsor_logo_url,
+            min_reward=min_reward,
+            max_reward=max_reward,
+            promo_code=promo_code,
+            promo_description=promo_description,
+            voucher_validity_days=voucher_validity_days,
+        )
+        db.session.add(sponsor)
+        db.session.commit()
+        flash("Спонсора рулетки додано")
+        return redirect(url_for("admin_roulette"))
+
+    sponsors = SponsorSpin.query.order_by(SponsorSpin.created_at.desc()).all()
+    return render_template("admin_roulette.html", sponsors=sponsors)
+
+
+@app.route("/admin/roulette/<int:sponsor_id>/edit", methods=["POST"])
+@login_required
+def edit_sponsor(sponsor_id):
+    if not current_user.is_admin:
+        flash("Тільки адмін може виконувати цю дію")
+        return redirect(url_for("dashboard"))
+
+    sponsor = SponsorSpin.query.get_or_404(sponsor_id)
+    min_reward = float(request.form["min_reward"])
+    max_reward = float(request.form["max_reward"])
+
+    if min_reward > max_reward:
+        flash("Мінімальна винагорода не може бути більшою за максимальну")
+        return redirect(url_for("admin_roulette"))
+
+    sponsor.sponsor_name = request.form["sponsor_name"].strip()
+    sponsor.sponsor_logo_url = request.form.get("sponsor_logo_url", "").strip() or None
+    sponsor.min_reward = min_reward
+    sponsor.max_reward = max_reward
+    sponsor.promo_code = request.form.get("promo_code", "").strip() or None
+    sponsor.promo_description = request.form.get("promo_description", "").strip() or None
+    sponsor.voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
+    db.session.commit()
+    flash(f"Спонсора {sponsor.sponsor_name} оновлено")
+    return redirect(url_for("admin_roulette"))
+
+
+@app.route("/admin/roulette/<int:sponsor_id>/toggle", methods=["POST"])
+@login_required
+def toggle_sponsor(sponsor_id):
+    if not current_user.is_admin:
+        flash("Тільки адмін може виконувати цю дію")
+        return redirect(url_for("dashboard"))
+
+    sponsor = SponsorSpin.query.get_or_404(sponsor_id)
+    sponsor.is_active = not sponsor.is_active
+    db.session.commit()
+    flash(f"Спонсора {sponsor.sponsor_name} {'активовано' if sponsor.is_active else 'деактивовано'}")
+    return redirect(url_for("admin_roulette"))
+
+
+@app.route("/admin/roulette/<int:sponsor_id>/prizes", methods=["POST"])
+@login_required
+def add_prize(sponsor_id):
+    if not current_user.is_admin:
+        flash("Тільки адмін може виконувати цю дію")
+        return redirect(url_for("dashboard"))
+
+    sponsor = SponsorSpin.query.get_or_404(sponsor_id)
+    prize_type = request.form["prize_type"]
+    weight = int(request.form["weight"])
+
+    prize = SpinPrize(sponsor_spin_id=sponsor.id, prize_type=prize_type, weight=weight)
+    if prize_type == "voucher":
+        prize.voucher_percent = int(request.form["voucher_percent"])
+        prize.sponsor_logo_url = request.form.get("sponsor_logo_url", "").strip() or None
+    else:
+        prize.coins_amount = float(request.form["coins_amount"])
+
+    db.session.add(prize)
+    db.session.commit()
+    flash("Приз додано до спонсора")
+    return redirect(url_for("admin_roulette"))
+
+
+@app.route("/admin/roulette/prizes/<int:prize_id>/delete", methods=["POST"])
+@login_required
+def delete_prize(prize_id):
+    if not current_user.is_admin:
+        flash("Тільки адмін може виконувати цю дію")
+        return redirect(url_for("dashboard"))
+
+    prize = SpinPrize.query.get_or_404(prize_id)
+    db.session.delete(prize)
+    db.session.commit()
+    flash("Приз видалено")
+    return redirect(url_for("admin_roulette"))
+
+
+# ---------- АДМІН: ПЕРЕВІРКА ВАУЧЕРІВ ----------
+
+@app.route("/admin/verify-voucher", methods=["GET", "POST"])
+@login_required
+def admin_verify_voucher():
+    if not current_user.is_admin:
+        flash("Тільки адмін може переглядати цю сторінку")
+        return redirect(url_for("dashboard"))
+
+    voucher = None
+    searched_code = ""
+
+    if request.method == "POST":
+        action = request.form.get("action", "search")
+
+        if action == "confirm":
+            voucher = VoucherRedemption.query.get_or_404(int(request.form["voucher_id"]))
+            searched_code = voucher.unique_code
+            if voucher.is_used:
+                flash("Ваучер вже використано")
+            elif voucher.is_expired:
+                flash("Ваучер прострочено")
+            else:
+                voucher.is_used = True
+                voucher.used_at = datetime.utcnow()
+                db.session.commit()
+                flash(f"Ваучер {voucher.unique_code} підтверджено як використаний")
+        else:
+            searched_code = request.form.get("unique_code", "").strip().upper()
+            voucher = VoucherRedemption.query.filter_by(unique_code=searched_code).first()
+            if not voucher:
+                flash("Ваучер з таким кодом не знайдено")
+
+    return render_template("admin_verify_voucher.html", voucher=voucher, searched_code=searched_code)
+
+
+# ---------- DASHBOARD ----------
+
+@app.route("/")
+@login_required
+def dashboard():
+    events = Event.query.filter(Event.status != "settled").order_by(Event.match_date).all()
+
+    expiring_voucher = (
+        VoucherRedemption.query.filter(
+            VoucherRedemption.user_id == current_user.id,
+            VoucherRedemption.is_used.is_(False),
+            VoucherRedemption.expires_at > datetime.utcnow(),
+            VoucherRedemption.expires_at <= datetime.utcnow() + timedelta(days=VOUCHER_EXPIRY_WARNING_DAYS),
+        )
+        .order_by(VoucherRedemption.expires_at)
+        .first()
+    )
+
+    return render_template("dashboard.html", events=events, expiring_voucher=expiring_voucher)
+
+
+# ---------- EVENTS (ADMIN / РЕКЛАМОДАВЕЦЬ) ----------
+
+@app.route("/event/create", methods=["GET", "POST"])
+@login_required
+def create_event():
+    if not current_user.is_admin:
+        flash("Тільки адмін може створювати події")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        title = request.form["title"]
+        description = request.form["description"]
+        sport_type = request.form["sport_type"]
+        prize_pool = float(request.form["prize_pool"])
+        match_date = datetime.strptime(request.form["match_date"], "%Y-%m-%dT%H:%M")
+        options = request.form.getlist("options")
+
+        event = Event(
+            title=title,
+            description=description,
+            sport_type=sport_type,
+            prize_pool=prize_pool,
+            match_date=match_date,
+            created_by=current_user.id,
+        )
+        db.session.add(event)
+        db.session.flush()  # щоб отримати event.id до коміту
+
+        for opt_text in options:
+            if opt_text.strip():
+                db.session.add(EventOption(event_id=event.id, option_text=opt_text.strip()))
+
+        db.session.commit()
+        flash("Подію створено")
+        return redirect(url_for("dashboard"))
+
+    return render_template("create_event.html", sport_choices=SPORT_CHOICES)
+
+
+@app.route("/event/<int:event_id>")
+@login_required
+def view_event(event_id):
+    event = Event.query.get_or_404(event_id)
+    user_bet = Bet.query.filter_by(user_id=current_user.id, event_id=event_id).first()
+    return render_template("event.html", event=event, user_bet=user_bet)
+
+
+# ---------- BETTING ----------
+
+@app.route("/event/<int:event_id>/bet", methods=["POST"])
+@login_required
+def place_bet(event_id):
+    event = Event.query.get_or_404(event_id)
+
+    if event.status != "open":
+        flash("Ставки на цю подію закрито")
+        return redirect(url_for("view_event", event_id=event_id))
+
+    option_id = int(request.form["option_id"])
+    amount = float(request.form["amount"])
+
+    if amount <= 0 or amount > current_user.balance:
+        flash("Недостатньо коштів на балансі")
+        return redirect(url_for("view_event", event_id=event_id))
+
+    existing = Bet.query.filter_by(user_id=current_user.id, event_id=event_id).first()
+    if existing:
+        flash("Ви вже зробили ставку на цю подію")
+        return redirect(url_for("view_event", event_id=event_id))
+
+    current_user.balance -= amount
+    bet = Bet(user_id=current_user.id, event_id=event_id, option_id=option_id, amount=amount)
+    db.session.add(bet)
+    db.session.commit()
+
+    flash("Ставку прийнято!")
+    return redirect(url_for("view_event", event_id=event_id))
+
+
+# ---------- SETTLEMENT (ADMIN) ----------
+
+@app.route("/event/<int:event_id>/settle", methods=["POST"])
+@login_required
+def settle_event(event_id):
+    if not current_user.is_admin:
+        flash("Тільки адмін може завершувати подію")
+        return redirect(url_for("dashboard"))
+
+    event = Event.query.get_or_404(event_id)
+    winning_option_id = int(request.form["winning_option_id"])
+
+    for opt in event.options:
+        opt.is_winner = (opt.id == winning_option_id)
+
+    winning_bets = Bet.query.filter_by(event_id=event_id, option_id=winning_option_id).all()
+    total_winning_amount = sum(b.amount for b in winning_bets)
+
+    # розподіл призового фонду пропорційно до розміру ставки переможців
+    if total_winning_amount > 0:
+        for bet in winning_bets:
+            share = bet.amount / total_winning_amount
+            payout_amount = round(event.prize_pool * share, 2)
+
+            user = User.query.get(bet.user_id)
+            user.balance += payout_amount
+
+            db.session.add(Payout(user_id=user.id, event_id=event_id, amount=payout_amount))
+
+    event.status = "settled"
+    db.session.commit()
+
+    flash("Подію завершено, призи розподілено")
+    return redirect(url_for("dashboard"))
+
+
+def migrate_user_columns():
+    """Легка авто-міграція SQLite: додає нові nullable-колонки User,
+    якщо вони відсутні в уже існуючій таблиці (create_all їх не додає)."""
+    inspector = inspect(db.engine)
+    if "user" not in inspector.get_table_names():
+        return
+
+    existing_cols = {col["name"] for col in inspector.get_columns("user")}
+    new_columns = {
+        "country": "VARCHAR(80)",
+        "phone": "VARCHAR(30)",
+        "is_verified": "BOOLEAN DEFAULT 0",
+        "last_spin_at": "DATETIME",
+        "spin_ready_notified": "BOOLEAN DEFAULT 0",
+    }
+    with db.engine.connect() as conn:
+        for col_name, col_type in new_columns.items():
+            if col_name not in existing_cols:
+                conn.execute(text(f"ALTER TABLE user ADD COLUMN {col_name} {col_type}"))
+        conn.commit()
+
+
+def migrate_sponsor_spin_columns():
+    """Легка авто-міграція SQLite: додає нові nullable-колонки SponsorSpin,
+    якщо вони відсутні в уже існуючій таблиці (create_all їх не додає)."""
+    inspector = inspect(db.engine)
+    if "sponsor_spin" not in inspector.get_table_names():
+        return
+
+    existing_cols = {col["name"] for col in inspector.get_columns("sponsor_spin")}
+    new_columns = {
+        "promo_code": "VARCHAR(50)",
+        "promo_description": "VARCHAR(255)",
+        "voucher_validity_days": "INTEGER DEFAULT 7",
+    }
+    with db.engine.connect() as conn:
+        for col_name, col_type in new_columns.items():
+            if col_name not in existing_cols:
+                conn.execute(text(f"ALTER TABLE sponsor_spin ADD COLUMN {col_name} {col_type}"))
+        conn.commit()
+
+
+def migrate_spin_prize_columns():
+    """Легка авто-міграція SQLite: додає нові nullable-колонки SpinPrize,
+    якщо вони відсутні в уже існуючій таблиці (create_all їх не додає)."""
+    inspector = inspect(db.engine)
+    if "spin_prize" not in inspector.get_table_names():
+        return
+
+    existing_cols = {col["name"] for col in inspector.get_columns("spin_prize")}
+    new_columns = {
+        "sponsor_logo_url": "VARCHAR(500)",
+    }
+    with db.engine.connect() as conn:
+        for col_name, col_type in new_columns.items():
+            if col_name not in existing_cols:
+                conn.execute(text(f"ALTER TABLE spin_prize ADD COLUMN {col_name} {col_type}"))
+        conn.commit()
+
+
+def migrate_voucher_redemption_columns():
+    """Легка авто-міграція SQLite: додає нові nullable-колонки VoucherRedemption,
+    якщо вони відсутні в уже існуючій таблиці (create_all їх не додає)."""
+    inspector = inspect(db.engine)
+    if "voucher_redemption" not in inspector.get_table_names():
+        return
+
+    existing_cols = {col["name"] for col in inspector.get_columns("voucher_redemption")}
+    new_columns = {
+        "expiry_reminder_sent": "BOOLEAN DEFAULT 0",
+    }
+    with db.engine.connect() as conn:
+        for col_name, col_type in new_columns.items():
+            if col_name not in existing_cols:
+                conn.execute(text(f"ALTER TABLE voucher_redemption ADD COLUMN {col_name} {col_type}"))
+        conn.commit()
+
+
+# Ініціалізація БД/планувальника виконується на рівні модуля (а не лише
+# всередині `if __name__ == "__main__":`), бо під gunicorn (Render тощо)
+# файл лише імпортується як WSGI-модуль — app.run() ніколи не викликається,
+# і без цього таблиці БД не створяться, а push-нагадування не запускаться.
+os.makedirs(app.instance_path, exist_ok=True)
+
+with app.app_context():
+    db.create_all()
+    migrate_user_columns()
+    migrate_sponsor_spin_columns()
+    migrate_spin_prize_columns()
+    migrate_voucher_redemption_columns()
+    # створюємо тестового адміна, якщо його ще нема
+    if not User.query.filter_by(username="admin").first():
+        admin = User(username="admin", email="admin@test.com", balance=0, is_admin=True)
+        admin.set_password("admin123")
+        db.session.add(admin)
+        db.session.commit()
+
+# захист від подвійного старту планувальника під Flask debug-reloader
+# (reloader спавнить дочірній процес; WERKZEUG_RUN_MAIN='true' лише в ньому)
+if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    start_notification_scheduler()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", debug=True)

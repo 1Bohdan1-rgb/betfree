@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Користувачі{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+{% endblock %}
+{% block content %}
+
+<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+    <a class="btn" href="{{ url_for('admin_roulette') }}" style="display:inline-flex;">🎰 Керування рулеткою</a>
+    <a class="btn" href="{{ url_for('admin_verify_voucher') }}" style="display:inline-flex;">🎟️ Перевірка ваучера</a>
+</div>
+
+<h2>Користувачі</h2>
+
+{% for u in users %}
+<div class="card">
+    <div class="admin-user-header">
+        <strong style="color:#f5f5f5;">{{ u.username }}</strong>
+        {% if u.is_verified %}
+        <span class="verify-badge verified">✅ Верифіковано</span>
+        {% else %}
+        <span class="verify-badge unverified">⏳ Не верифіковано</span>
+        {% endif %}
+    </div>
+    <p class="event-meta">{{ u.email }}{% if u.country %} · {{ u.country }}{% endif %}</p>
+    <p class="event-meta">💰 {{ "%.2f"|format(u.balance) }} монет</p>
+    <form method="POST" action="{{ url_for('toggle_verify', user_id=u.id) }}">
+        <button class="btn btn-block" type="submit">{{ "Скасувати верифікацію" if u.is_verified else "Верифікувати" }}</button>
+    </form>
+</div>
+{% endfor %}
+
+{% endblock %}

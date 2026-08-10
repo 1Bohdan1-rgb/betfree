@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Вхід{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('register') }}">← Назад</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Вхід</h2>
+    <form method="POST">
+        <label>Юзернейм</label>
+        <input type="text" name="username" value="{{ remembered_username }}" required>
+        <label>Пароль</label>
+        <input type="password" name="password" required>
+        <div class="checkbox-row">
+            <input type="checkbox" name="remember_me" id="remember_me" {% if remembered_username %}checked{% endif %}>
+            <label for="remember_me">Запам'ятати мене</label>
+        </div>
+        <button class="btn" type="submit">Увійти</button>
+    </form>
+    <p>Немає акаунту? <a href="{{ url_for('register') }}">Зареєструватись</a></p>
+    <p style="font-size:12px;color:#888">Тестовий адмін: admin / admin123</p>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Перевірка ваучера{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('admin_users') }}">← Назад</a>
+{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>Перевірка ваучера</h2>
+    <form method="POST">
+        <input type="hidden" name="action" value="search">
+        <label>Унікальний код</label>
+        <input type="text" name="unique_code" value="{{ searched_code }}" placeholder="BETFREE-XXXXXX" required>
+        <button class="btn btn-block" type="submit">Перевірити</button>
+    </form>
+</div>
+
+{% if voucher %}
+<div class="card voucher-card voucher-{{ voucher.badge_status }}">
+    <h3 class="promo-code" style="display:inline-block;">{{ voucher.unique_code }}</h3>
+    <p><strong>Користувач:</strong> {{ voucher.user.username }}</p>
+    <p><strong>Спонсор:</strong> {{ voucher.sponsor.sponsor_name }}</p>
+    <p><strong>Знижка:</strong> -{{ voucher.prize.voucher_percent if voucher.prize else '?' }}%</p>
+    <p><strong>Отримано:</strong> {{ voucher.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+    <p><strong>Дійсний до:</strong> {{ voucher.expires_at.strftime('%d.%m.%Y %H:%M') }}</p>
+
+    {% if voucher.is_used %}
+    <span class="voucher-status-badge status-used">Використано {{ voucher.used_at.strftime('%d.%m.%Y %H:%M') if voucher.used_at else '' }}</span>
+    {% elif voucher.badge_status == 'expired' %}
+    <span class="voucher-status-badge status-expired">Прострочено</span>
+    {% else %}
+    <form method="POST" style="margin-top:14px;">
+        <input type="hidden" name="action" value="confirm">
+        <input type="hidden" name="voucher_id" value="{{ voucher.id }}">
+        <button class="btn btn-block" type="submit">Підтвердити використання</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Рулетка{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+{% endblock %}
+{% block content %}
+
+{% if sponsor %}
+<div class="card" style="text-align:center;">
+    {% if sponsor.sponsor_logo_url %}
+    <img class="sponsor-logo" src="{{ sponsor.sponsor_logo_url }}" alt="{{ sponsor.sponsor_name }}">
+    {% endif %}
+    <p class="event-meta" style="justify-content:center;">Спонсор рулетки</p>
+    <h3 style="margin:0;">{{ sponsor.sponsor_name }}</h3>
+</div>
+{% endif %}
+
+<div class="card" style="text-align:center;">
+    <div class="wheel-wrap">
+        <div class="wheel-pointer">▼</div>
+        <div class="roulette-wheel" id="wheel">
+            {% for sector in sectors %}
+            <div class="wheel-sector {{ 'sector-alt' if loop.index0 % 2 else '' }}{{ ' has-logo' if sector.logo_url else '' }}"
+                 style="clip-path: {{ sector.clip_path }};{% if sector.logo_url %} --logo-url: url('{{ sector.logo_url }}');{% endif %}"></div>
+            {% endfor %}
+            {% for sector in sectors %}
+            <span class="sector-label" style="--angle: {{ (loop.index0 * 360 / sectors|length) + (360 / sectors|length / 2) }}deg;">{{ sector.label }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <button class="btn btn-block btn-spin" type="button" id="spin-btn" {{ "disabled" if not can_spin else "" }}>Крутити</button>
+
+    <p class="event-meta" id="cooldown-row" style="justify-content:center; margin-top:10px; {{ '' if not can_spin else 'display:none;' }}">
+        Наступна спроба через <strong id="countdown" data-next="{{ (next_available_at.isoformat() ~ 'Z') if next_available_at else '' }}">--:--:--</strong>
+    </p>
+
+    <div class="spin-result" id="spin-result" style="display:none;">
+        <div class="spin-amount" id="spin-amount"></div>
+        <div class="promo-card" id="promo-card" style="display:none;">
+            <div class="promo-icon">🎁</div>
+            <div class="promo-desc" id="promo-desc"></div>
+            <div class="promo-code" id="promo-code"></div>
+            <div class="promo-expiry" id="promo-expiry"></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const SECTOR_COUNT = {{ sectors|length }};
+    const SECTOR_ANGLE = 360 / SECTOR_COUNT;
+
+    const wheel = document.getElementById("wheel");
+    const spinBtn = document.getElementById("spin-btn");
+    const resultBox = document.getElementById("spin-result");
+    const amountEl = document.getElementById("spin-amount");
+    const promoCard = document.getElementById("promo-card");
+    const promoDesc = document.getElementById("promo-desc");
+    const promoCode = document.getElementById("promo-code");
+    const promoExpiry = document.getElementById("promo-expiry");
+    const cooldownRow = document.getElementById("cooldown-row");
+    const countdownEl = document.getElementById("countdown");
+    const balanceEl = document.querySelector(".balance");
+
+    let currentRotation = 0;
+    let spinning = false;
+    let countdownTimer = null;
+
+    function startCountdown(isoString) {
+        if (!isoString) return;
+        countdownEl.dataset.next = isoString;
+        cooldownRow.style.display = "";
+        const target = new Date(isoString).getTime();
+
+        if (countdownTimer) clearTimeout(countdownTimer);
+
+        function tick() {
+            const diff = target - Date.now();
+            if (diff <= 0) {
+                cooldownRow.style.display = "none";
+                spinBtn.disabled = false;
+                return;
+            }
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            countdownEl.textContent =
+                String(h).padStart(2, "0") + ":" +
+                String(m).padStart(2, "0") + ":" +
+                String(s).padStart(2, "0");
+            countdownTimer = setTimeout(tick, 1000);
+        }
+        tick();
+    }
+
+    if (countdownEl.dataset.next) {
+        startCountdown(countdownEl.dataset.next);
+    }
+
+    function spinToSector(index) {
+        const targetCenter = index * SECTOR_ANGLE + SECTOR_ANGLE / 2;
+        const jitter = (Math.random() - 0.5) * (SECTOR_ANGLE * 0.6);
+        const targetWithinCircle = (360 - (targetCenter + jitter) + 360) % 360;
+        const extraSpins = 6 * 360;
+
+        const base = currentRotation - (currentRotation % 360);
+        let newRotation = base + extraSpins + targetWithinCircle;
+        while (newRotation <= currentRotation) newRotation += 360;
+        currentRotation = newRotation;
+        wheel.style.transform = "rotate(" + currentRotation + "deg)";
+    }
+
+    spinBtn.addEventListener("click", function () {
+        if (spinning || spinBtn.disabled) return;
+        spinning = true;
+        spinBtn.disabled = true;
+        resultBox.style.display = "none";
+        resultBox.classList.remove("revealed");
+        promoCard.style.display = "none";
+
+        fetch("{{ url_for('roulette') }}", {
+            method: "POST",
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                if (!data.ok) {
+                    spinning = false;
+                    spinBtn.disabled = false;
+                    alert(data.message || "Помилка");
+                    return;
+                }
+
+                spinToSector(data.sector_index);
+
+                setTimeout(function () {
+                    spinning = false;
+
+                    if (data.prize_type === "voucher") {
+                        amountEl.textContent = "🎁 Ваучер -" + data.percent + "%!";
+                        promoDesc.textContent = data.promo_description || ("Знижка " + data.percent + "%");
+                        promoCode.textContent = data.voucher_code;
+                        promoExpiry.textContent = "Дійсний до " + data.voucher_expires;
+                        promoCard.style.display = "block";
+                    } else {
+                        amountEl.textContent = "+" + data.amount + " монет 🎉";
+                    }
+
+                    resultBox.style.display = "block";
+                    setTimeout(() => resultBox.classList.add("revealed"), 20);
+
+                    if (balanceEl) {
+                        balanceEl.innerHTML = '<span class="wallet-icon">💰</span>' + data.balance.toFixed(2);
+                    }
+
+                    startCountdown(data.next_available_at);
+                }, 4200);
+            })
+            .catch(function () {
+                spinning = false;
+                spinBtn.disabled = false;
+                alert("Помилка з'єднання");
+            });
+    });
+})();
+</script>
+{% endblock %}

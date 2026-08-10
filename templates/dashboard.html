@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Події{% endblock %}
+{% block content %}
+
+{% if expiring_voucher %}
+<div class="voucher-banner">
+    <span>
+        ⏰ У вас є ваучер {{ expiring_voucher.sponsor.sponsor_name }}
+        -{{ expiring_voucher.prize.voucher_percent if expiring_voucher.prize else '' }}%,
+        що спливає {{ expiring_voucher.expires_at.strftime('%d.%m.%Y %H:%M') }}!
+    </span>
+    <a href="{{ url_for('my_vouchers') }}">Переглянути</a>
+</div>
+{% endif %}
+
+{% if current_user.is_admin %}
+<a class="btn" href="{{ url_for('create_event') }}" style="margin-bottom:20px;display:inline-block;">+ Створити подію</a>
+{% endif %}
+
+{% if not events %}
+<div class="card">Активних подій поки немає</div>
+{% endif %}
+
+{% for e in events %}
+<div class="card event-card {{ 'is-settled' if e.status != 'open' else '' }}">
+    <div class="event-card-image" style="--card-image: url('{{ e.sport_image }}');"></div>
+    <div class="event-card-body">
+        <div class="event-card-top">
+            <div class="event-card-left">
+                <div>
+                    <h3 class="event-title">{{ e.title }}</h3>
+                    <span class="event-meta">
+                        <span class="status {{ 'settled' if e.status != 'open' else '' }}">{{ e.status }}</span>
+                        {{ e.match_date.strftime('%d.%m.%Y %H:%M') }}
+                    </span>
+                </div>
+            </div>
+            <div class="prize-badge">🏆 {{ "%.0f"|format(e.prize_pool) }}</div>
+        </div>
+        <a class="btn btn-block" href="{{ url_for('view_event', event_id=e.id) }}">Переглянути</a>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    function sendSubscriptionToServer(subscription) {
+        return fetch("{{ url_for('push_subscribe') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(subscription),
+        });
+    }
+
+    navigator.serviceWorker.ready
+        .then(function (registration) {
+            return registration.pushManager.getSubscription().then(function (existingSub) {
+                if (existingSub) return existingSub;
+                if (Notification.permission === "denied") return null;
+
+                return Notification.requestPermission().then(function (permission) {
+                    if (permission !== "granted") return null;
+
+                    return fetch("{{ url_for('push_vapid_public_key') }}")
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            if (!data.enabled || !data.publicKey) {
+                                console.warn("Push вимкнено на сервері (немає VAPID-ключів)");
+                                return null;
+                            }
+                            return registration.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: urlBase64ToUint8Array(data.publicKey),
+                            });
+                        });
+                });
+            });
+        })
+        .then(function (subscription) {
+            if (!subscription) return;
+            return sendSubscriptionToServer(subscription);
+        })
+        .catch(function (err) {
+            console.error("Не вдалося підписатись на push-сповіщення:", err);
+        });
+})();
+</script>
+{% endblock %}

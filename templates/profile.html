@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Профіль{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+{% endblock %}
+{% block content %}
+
+<div class="card">
+    <div class="admin-user-header">
+        <h2 style="margin:0;">{{ current_user.username }}</h2>
+        {% if current_user.is_verified %}
+        <span class="verify-badge verified">✅ Верифіковано</span>
+        {% else %}
+        <span class="verify-badge unverified">⏳ Не верифіковано</span>
+        {% endif %}
+    </div>
+    <p><strong>Email:</strong> {{ current_user.email }}</p>
+    <p><strong>Країна:</strong> {{ current_user.country or "—" }}</p>
+    <p><strong>Телефон:</strong> {{ current_user.phone or "—" }}</p>
+    <p><strong>Дата реєстрації:</strong> {{ current_user.created_at.strftime('%d.%m.%Y') }}</p>
+    <p><strong>Баланс:</strong> 💰 {{ "%.2f"|format(current_user.balance) }} монет</p>
+    <a class="btn btn-block" href="{{ url_for('my_vouchers') }}">🎟️ Мої ваучери ({{ active_voucher_count }} активних)</a>
+</div>
+
+<div class="card">
+    <h3>Гаманець</h3>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <form method="POST" action="{{ url_for('profile_deposit') }}" style="flex:1 1 140px; margin:0;">
+            <button class="btn btn-block" type="submit">Поповнити баланс</button>
+        </form>
+        <form method="POST" action="{{ url_for('profile_withdraw') }}" style="flex:1 1 140px; margin:0;">
+            <button class="btn btn-block" type="submit">Вивести кошти</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Редагувати профіль</h3>
+    <form method="POST" action="{{ url_for('profile') }}">
+        <label>Email</label>
+        <input type="email" name="email" value="{{ current_user.email }}" required>
+        <label>Країна</label>
+        <input type="text" name="country" value="{{ current_user.country or '' }}">
+        <label>Телефон</label>
+        <input type="text" name="phone" value="{{ current_user.phone or '' }}">
+        <button class="btn" type="submit">Зберегти зміни</button>
+    </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Створити подію{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Нова подія</h2>
+    <form method="POST">
+        <label>Назва</label>
+        <input type="text" name="title" required>
+
+        <label>Опис</label>
+        <textarea name="description" rows="3"></textarea>
+
+        <label>Вид спорту</label>
+        <select name="sport_type">
+            {% for value, icon, label in sport_choices %}
+            <option value="{{ value }}">{{ icon }} {{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Призовий фонд (монети)</label>
+        <input type="number" step="0.01" name="prize_pool" required>
+
+        <label>Дата матчу</label>
+        <input type="datetime-local" name="match_date" required>
+
+        <label>Варіанти прогнозу</label>
+        <label>Варіант 1</label>
+        <input type="text" name="options" required>
+        <label>Варіант 2</label>
+        <input type="text" name="options" required>
+        <label>Варіант 3 (необов'язково)</label>
+        <input type="text" name="options">
+
+        <button class="btn" type="submit">Створити подію</button>
+    </form>
+</div>
+{% endblock %}

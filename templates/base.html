@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>BetFree — {% block title %}{% endblock %}</title>
+
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#0a1428">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BetFree">
+    <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+
+    <style>
+        :root {
+            --bg: #0a1428;
+            --card-bg: #132038;
+            --card-bg-alt: #1a2c4d;
+            --wheel-a: #16233f;
+            --wheel-b: #0e192e;
+            --gold: #d4af37;
+            --gold-dark: #c9a227;
+            --gold-soft: rgba(212, 175, 55, 0.16);
+            --text: #f0f0f0;
+            --text-muted: #9fb0c9;
+            --border: rgba(212, 175, 55, 0.28);
+            --green: #3ddc84;
+        }
+
+        body { font-family: -apple-system, Arial, sans-serif; max-width: 700px; margin: 30px auto; padding: 0 15px; background: var(--bg); color: var(--text); }
+        header { margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid rgba(212, 175, 55, 0.16); box-shadow: 0 8px 16px -12px rgba(0, 0, 0, 0.6); }
+        header a { text-decoration: none; color: var(--gold); font-weight: 700; }
+
+        /* єдиний рядок header: лого зліва, баланс+іконки+вихід справа */
+        .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; row-gap: 12px; column-gap: 20px; }
+        .brand { font-size: 21px; }
+        .header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .balance { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #f0d878, var(--gold-dark)); color: #1a1206; padding: 8px 16px; border-radius: 24px; font-size: 18px; font-weight: 700; }
+        .balance .wallet-icon { font-size: 18px; }
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.45); overflow: hidden; }
+        h2, h3 { color: var(--gold); }
+        p { color: var(--text-muted); }
+        label { color: var(--text-muted); }
+        a { color: var(--gold); }
+        .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; background: linear-gradient(135deg, #f0d878, var(--gold-dark)); color: #1a1206; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 700; text-decoration: none; box-sizing: border-box; }
+        .btn:hover { filter: brightness(1.08); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+        .btn-block { display: flex; width: 100%; }
+        input, textarea, select { width: 100%; min-height: 44px; padding: 10px; margin: 6px 0 14px; border-radius: 6px; border: 1px solid var(--border); box-sizing: border-box; font-size: 16px; background: #0f1c33; color: var(--text); }
+        input::placeholder, textarea::placeholder { color: #6d7f9b; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--gold); }
+        .flash { background: rgba(212, 175, 55, 0.12); color: var(--gold); border: 1px solid rgba(212, 175, 55, 0.4); padding: 10px; border-radius: 8px; margin-bottom: 15px; }
+        .status { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: rgba(61, 220, 132, 0.18); color: var(--green); font-weight: 600; text-transform: uppercase; }
+        .status.settled { background: rgba(159, 176, 201, 0.12); color: var(--text-muted); }
+
+        /* картки подій */
+        .event-card { padding: 0; border-left: 4px solid var(--green); }
+        .event-card.is-settled { border-left-color: #445069; }
+        .event-card-image { height: 120px; background-size: cover; background-position: center; background-image: linear-gradient(to bottom, rgba(10,20,40,0) 40%, var(--card-bg) 100%), var(--card-image); }
+        .event-card-body { padding: 14px 16px 16px; }
+        .event-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+        .event-card-left { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+        .event-title { margin: 0 0 4px; font-size: 16px; overflow-wrap: anywhere; color: var(--text); }
+        .event-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+        .prize-badge { flex-shrink: 0; background: linear-gradient(135deg, #f0d878, var(--gold-dark)); color: #1a1206; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 14px; white-space: nowrap; }
+
+        /* вибір варіанту ставки */
+        .option-picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+        .option-radio { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        .option-card { flex: 1 1 auto; min-width: 100px; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 10px 14px; border: 2px solid var(--border); border-radius: 8px; background: #0f1c33; color: var(--text); cursor: pointer; font-size: 14px; font-weight: 600; text-align: center; box-sizing: border-box; transition: border-color .15s, background .15s, color .15s; }
+        .option-radio:checked + .option-card { border-color: var(--gold); background: var(--gold); color: #1a1206; }
+        .option-radio:focus-visible + .option-card { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+        /* чекбокс "запам'ятати мене" */
+        .checkbox-row { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 6px 0 14px; }
+        .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; margin: 0; flex-shrink: 0; accent-color: var(--gold); }
+        .checkbox-row label { margin: 0; font-size: 14px; }
+
+        /* іконки в шапці (рулетка, профіль, адмін, вихід) — уніфікований контурний стиль */
+        .icon-link { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; min-width: 38px; min-height: 38px; box-sizing: border-box; font-size: 17px; text-decoration: none; color: var(--text-muted); border: 1.5px solid rgba(159, 176, 201, 0.35); border-radius: 50%; transition: border-color .15s, background .15s; }
+        .icon-link:hover { border-color: var(--text-muted); background: rgba(159, 176, 201, 0.08); }
+
+        /* навігація "назад" */
+        .btn-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--text-muted); font-size: 14px; font-weight: 600; text-decoration: none; margin-bottom: 10px; }
+        .btn-back:hover { color: var(--gold); }
+
+        /* бейдж верифікації */
+        .verify-badge { display: inline-block; font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
+        .verify-badge.verified { background: rgba(61, 220, 132, 0.18); color: var(--green); }
+        .verify-badge.unverified { background: var(--gold-soft); color: var(--gold); }
+
+        /* рядок користувача в адмін-панелі */
+        .admin-user-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+
+        /* рулетка */
+        .wheel-wrap { position: relative; width: 300px; height: 300px; max-width: 100%; margin: 10px auto 24px; }
+        .wheel-pointer { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 36px; line-height: 1; color: var(--gold); z-index: 2; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.7)); }
+        .roulette-wheel {
+            position: relative;
+            width: 300px; height: 300px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 6px solid var(--gold);
+            box-shadow: 0 0 0 3px rgba(212,175,55,0.25), 0 6px 24px rgba(0,0,0,0.5);
+            transition: transform 4s cubic-bezier(.12, .67, .1, 1);
+        }
+        .wheel-sector {
+            position: absolute;
+            inset: 0;
+            background: var(--wheel-a);
+        }
+        .wheel-sector.sector-alt { background: var(--wheel-b); }
+        .wheel-sector.has-logo::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: var(--logo-url);
+            background-size: cover;
+            background-position: center;
+            opacity: 0.35;
+        }
+        .sector-label {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 0; height: 0;
+            z-index: 1;
+            display: flex; align-items: center; justify-content: center;
+            transform: rotate(var(--angle)) translateY(-118px) rotate(calc(-1 * var(--angle)));
+            color: var(--gold);
+            font-weight: 800;
+            font-size: 16px;
+            white-space: nowrap;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+        }
+        .sponsor-logo { max-height: 50px; max-width: 100%; margin-bottom: 10px; }
+
+        @keyframes pulse-gold {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.55); }
+            50% { box-shadow: 0 0 0 14px rgba(212, 175, 55, 0); }
+        }
+        .btn-spin { font-size: 18px; padding: 14px 18px; min-height: 54px; }
+        .btn-spin:not(:disabled) { animation: pulse-gold 2s infinite; }
+
+        /* результат прокрутки */
+        .spin-result { margin-top: 18px; opacity: 0; transform: scale(0.7); transition: opacity .4s ease, transform .4s cubic-bezier(.34, 1.56, .64, 1); }
+        .spin-result.revealed { opacity: 1; transform: scale(1); }
+        .spin-amount { font-size: 30px; font-weight: 800; color: var(--gold); margin-bottom: 14px; }
+        .promo-card { border: 2px dashed var(--gold); border-radius: 10px; padding: 14px; background: var(--gold-soft); }
+        .promo-icon { font-size: 26px; margin-bottom: 6px; }
+        .promo-desc { color: var(--text-muted); font-size: 13px; margin-bottom: 8px; }
+        .promo-code { display: inline-block; font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #1a1206; background: var(--gold); padding: 8px 16px; border-radius: 8px; }
+        .promo-expiry { margin-top: 10px; font-size: 12px; color: var(--text-muted); }
+
+        /* ваучери користувача */
+        .voucher-card { border-left: 4px solid var(--text-muted); }
+        .voucher-card.voucher-active { border-left-color: var(--green); }
+        .voucher-card.voucher-expiring { border-left-color: #ffd873; }
+        .voucher-card.voucher-expired, .voucher-card.voucher-used { border-left-color: #445069; }
+        .voucher-status-badge { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
+        .voucher-status-badge.status-active { background: rgba(61, 220, 132, 0.18); color: var(--green); }
+        .voucher-status-badge.status-expiring { background: rgba(255, 200, 87, 0.15); color: #ffd873; }
+        .voucher-status-badge.status-expired, .voucher-status-badge.status-used { background: rgba(159, 176, 201, 0.12); color: var(--text-muted); }
+
+        /* банер нагадування про ваучер, що спливає */
+        .voucher-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: rgba(255, 200, 87, 0.12); color: #ffd873; border: 1px solid rgba(255, 200, 87, 0.4); padding: 12px 14px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
+        .voucher-banner a { color: #ffd873; text-decoration: underline; font-weight: 700; white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-top">
+            <a href="{{ url_for('dashboard') }}" class="brand">🎯 BetFree</a>
+            {% if current_user.is_authenticated %}
+                <div class="header-right">
+                    <span class="balance"><span class="wallet-icon">💰</span>{{ "%.2f"|format(current_user.balance) }}</span>
+                    <a href="{{ url_for('roulette') }}" class="icon-link" title="Рулетка">🎰</a>
+                    <a href="{{ url_for('profile') }}" class="icon-link" title="Профіль">👤</a>
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin_users') }}" class="icon-link" title="Адмін-панель користувачів">🛠️</a>
+                    {% endif %}
+                    <a href="{{ url_for('logout') }}" class="icon-link" title="Вийти" aria-label="Вийти">🚪</a>
+                </div>
+            {% endif %}
+        </div>
+    </header>
+
+    {% block back_nav %}{% endblock %}
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for m in messages %}
+                <div class="flash">{{ m }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("/sw.js").catch((err) => {
+                    console.error("Service worker registration failed:", err);
+                });
+            });
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

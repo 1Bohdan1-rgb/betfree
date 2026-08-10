@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }}{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+{% endblock %}
+{% block content %}
+
+<div class="card event-card {{ 'is-settled' if event.status != 'open' else '' }}">
+    <div class="event-card-image" style="--card-image: url('{{ event.sport_image }}');"></div>
+    <div class="event-card-body">
+        <div class="event-card-top">
+            <div class="event-card-left">
+                <div>
+                    <h2 class="event-title">{{ event.title }}</h2>
+                    <span class="event-meta">
+                        <span class="status {{ 'settled' if event.status != 'open' else '' }}">{{ event.status }}</span>
+                        {{ event.sport_label }} &middot; {{ event.match_date.strftime('%d.%m.%Y %H:%M') }}
+                    </span>
+                </div>
+            </div>
+            <div class="prize-badge">🏆 {{ "%.0f"|format(event.prize_pool) }}</div>
+        </div>
+        <p>{{ event.description }}</p>
+    </div>
+</div>
+
+{% if event.status == "open" %}
+    {% if user_bet %}
+    <div class="card">
+        Ви вже поставили <strong>{{ user_bet.amount }}</strong> монет на "{{ user_bet.option.option_text }}"
+    </div>
+    {% else %}
+    <div class="card">
+        <h3>Зробити ставку</h3>
+        <form method="POST" action="{{ url_for('place_bet', event_id=event.id) }}">
+            <label>Ваш прогноз</label>
+            <div class="option-picker">
+                {% for opt in event.options %}
+                <input type="radio" name="option_id" id="opt-{{ opt.id }}" value="{{ opt.id }}" required class="option-radio">
+                <label for="opt-{{ opt.id }}" class="option-card">{{ opt.option_text }}</label>
+                {% endfor %}
+            </div>
+            <label>Сума ставки (монети)</label>
+            <input type="number" step="0.01" name="amount" max="{{ current_user.balance }}" required>
+            <button class="btn" type="submit">Поставити</button>
+        </form>
+    </div>
+    {% endif %}
+{% endif %}
+
+{% if current_user.is_admin and event.status == "open" %}
+<div class="card">
+    <h3>Завершити подію (адмін)</h3>
+    <form method="POST" action="{{ url_for('settle_event', event_id=event.id) }}">
+        <label>Переможний варіант</label>
+        <select name="winning_option_id" required>
+            {% for opt in event.options %}
+            <option value="{{ opt.id }}">{{ opt.option_text }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn" type="submit">Завершити і розподілити приз</button>
+    </form>
+</div>
+{% endif %}
+
+{% if event.status == "settled" %}
+<div class="card">
+    <h3>Результат</h3>
+    {% for opt in event.options %}
+        <p>{{ opt.option_text }} {% if opt.is_winner %}✅ Переможець{% endif %}</p>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
