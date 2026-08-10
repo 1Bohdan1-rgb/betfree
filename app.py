@@ -108,7 +108,20 @@ def generate_unique_voucher_code():
 
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "change-this-in-production"
+
+# SECRET_KEY підписує сесії/куки (зокрема remember-me). В проді ОБОВ'ЯЗКОВО
+# задавати через змінну середовища — інакше будь-хто, хто має цей рядок
+# у коді (напр. в git-репозиторії), зможе підробляти сесії користувачів.
+# Дефолт нижче — лише заглушка для локальної розробки.
+_SECRET_KEY = os.environ.get("SECRET_KEY")
+if not _SECRET_KEY:
+    _SECRET_KEY = "dev-insecure-secret-key-do-not-use-in-production"
+    logging.warning(
+        "Змінна середовища SECRET_KEY не задана — використовується небезпечний "
+        "дефолт лише для локальної розробки. У продакшені обов'язково задайте SECRET_KEY."
+    )
+app.config["SECRET_KEY"] = _SECRET_KEY
+
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///betfree.db"
 db.init_app(app)
 
@@ -351,17 +364,10 @@ def profile():
     return render_template("profile.html", active_voucher_count=active_voucher_count)
 
 
-@app.route("/profile/deposit", methods=["POST"])
-@login_required
-def profile_deposit():
-    flash("Функція поповнення/виведення буде доступна після інтеграції платіжної системи")
-    return redirect(url_for("profile"))
-
-
 @app.route("/profile/withdraw", methods=["POST"])
 @login_required
 def profile_withdraw():
-    flash("Функція поповнення/виведення буде доступна після інтеграції платіжної системи")
+    flash("Функція виведення буде доступна після інтеграції платіжної системи")
     return redirect(url_for("profile"))
 
 
