@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Редагувати подію{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('view_event', event_id=event.id) }}">← Назад</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Редагувати подію</h2>
+    <form method="POST">
+        <label>Назва</label>
+        <input type="text" name="title" value="{{ event.title }}" required>
+
+        <label>Опис</label>
+        <textarea name="description" rows="3">{{ event.description or '' }}</textarea>
+
+        <label>Вид спорту</label>
+        <select name="sport_type">
+            {% for value, icon, label in sport_choices %}
+            <option value="{{ value }}" {{ "selected" if event.sport_type == value else "" }}>{{ icon }} {{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Призовий фонд (монети)</label>
+        <input type="number" step="0.01" name="prize_pool" value="{{ event.prize_pool }}" required>
+
+        <label>Спонсор призового фонду (необов'язково)</label>
+        <select name="sponsor_spin_id">
+            <option value="">Без спонсора</option>
+            {% for s in sponsors %}
+            <option value="{{ s.id }}" {{ "selected" if event.sponsor_spin_id == s.id else "" }}>{{ s.sponsor_name }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Дата матчу</label>
+        <input type="datetime-local" name="match_date" value="{{ event.match_date.strftime('%Y-%m-%dT%H:%M') }}" required>
+
+        <button class="btn" type="submit">Зберегти зміни</button>
+    </form>
+</div>
+{% endblock %}

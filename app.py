@@ -698,6 +698,7 @@ def create_event():
         prize_pool = float(request.form["prize_pool"])
         match_date = datetime.strptime(request.form["match_date"], "%Y-%m-%dT%H:%M")
         options = request.form.getlist("options")
+        sponsor_spin_id = request.form.get("sponsor_spin_id") or None
 
         event = Event(
             title=title,
@@ -706,6 +707,7 @@ def create_event():
             prize_pool=prize_pool,
             match_date=match_date,
             created_by=current_user.id,
+            sponsor_spin_id=int(sponsor_spin_id) if sponsor_spin_id else None,
         )
         db.session.add(event)
         db.session.flush()  # щоб отримати event.id до коміту
@@ -718,7 +720,34 @@ def create_event():
         flash("Подію створено")
         return redirect(url_for("dashboard"))
 
-    return render_template("create_event.html", sport_choices=SPORT_CHOICES)
+    sponsors = SponsorSpin.query.filter_by(is_active=True).order_by(SponsorSpin.sponsor_name).all()
+    return render_template("create_event.html", sport_choices=SPORT_CHOICES, sponsors=sponsors)
+
+
+@app.route("/event/<int:event_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_event(event_id):
+    if not current_user.is_admin:
+        flash("Тільки адмін може редагувати події")
+        return redirect(url_for("dashboard"))
+
+    event = Event.query.get_or_404(event_id)
+
+    if request.method == "POST":
+        event.title = request.form["title"]
+        event.description = request.form["description"]
+        event.sport_type = request.form["sport_type"]
+        event.prize_pool = float(request.form["prize_pool"])
+        event.match_date = datetime.strptime(request.form["match_date"], "%Y-%m-%dT%H:%M")
+        sponsor_spin_id = request.form.get("sponsor_spin_id") or None
+        event.sponsor_spin_id = int(sponsor_spin_id) if sponsor_spin_id else None
+
+        db.session.commit()
+        flash("Подію оновлено")
+        return redirect(url_for("view_event", event_id=event.id))
+
+    sponsors = SponsorSpin.query.filter_by(is_active=True).order_by(SponsorSpin.sponsor_name).all()
+    return render_template("edit_event.html", event=event, sport_choices=SPORT_CHOICES, sponsors=sponsors)
 
 
 @app.route("/event/<int:event_id>")
@@ -883,6 +912,20 @@ def migrate_bet_columns():
             conn.commit()
 
 
+def migrate_event_columns():
+    """Легка авто-міграція SQLite: додає нову nullable-колонку Event.sponsor_spin_id,
+    якщо вона відсутня в уже існуючій таблиці (create_all її не додає)."""
+    inspector = inspect(db.engine)
+    if "event" not in inspector.get_table_names():
+        return
+
+    existing_cols = {col["name"] for col in inspector.get_columns("event")}
+    if "sponsor_spin_id" not in existing_cols:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE event ADD COLUMN sponsor_spin_id INTEGER"))
+            conn.commit()
+
+
 # Ініціалізація БД/планувальника виконується на рівні модуля (а не лише
 # всередині `if __name__ == "__main__":`), бо під gunicorn (Render тощо)
 # файл лише імпортується як WSGI-модуль — app.run() ніколи не викликається,
@@ -896,6 +939,7 @@ with app.app_context():
     migrate_spin_prize_columns()
     migrate_voucher_redemption_columns()
     migrate_bet_columns()
+    migrate_event_columns()
     # створюємо тестового адміна, якщо його ще нема
     if not User.query.filter_by(username="admin").first():
         admin = User(username="admin", email="admin@test.com", balance=0, is_admin=True)

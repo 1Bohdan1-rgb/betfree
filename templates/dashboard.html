@@ -37,6 +37,14 @@
             </div>
             <div class="prize-badge">🏆 {{ "%.0f"|format(e.prize_pool) }}</div>
         </div>
+        {% if e.sponsor %}
+        <div class="event-sponsor-strip">
+            {% if e.sponsor.sponsor_logo_url %}
+            <img src="{{ e.sponsor.sponsor_logo_url }}" alt="{{ e.sponsor.sponsor_name }}">
+            {% endif %}
+            <span>Призовий фонд надає <strong>{{ e.sponsor.sponsor_name }}</strong></span>
+        </div>
+        {% endif %}
         <a class="btn btn-block" href="{{ url_for('view_event', event_id=e.id) }}">Переглянути</a>
     </div>
 </div>

@@ -63,10 +63,12 @@ class Event(db.Model):
     status = db.Column(db.String(20), default="open")  # open / closed / settled
     match_date = db.Column(db.DateTime)
     created_by = db.Column(db.Integer, db.ForeignKey("user.id"))
+    sponsor_spin_id = db.Column(db.Integer, db.ForeignKey("sponsor_spin.id"), nullable=True)  # хто надає призовий фонд
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     options = db.relationship("EventOption", backref="event", lazy=True, cascade="all, delete-orphan")
     bets = db.relationship("Bet", backref="event", lazy=True, cascade="all, delete-orphan")
+    sponsor = db.relationship("SponsorSpin")
 
     @property
     def sport_icon(self):

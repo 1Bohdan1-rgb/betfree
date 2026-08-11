@@ -21,6 +21,17 @@
             <div class="prize-badge">🏆 {{ "%.0f"|format(event.prize_pool) }}</div>
         </div>
         <p>{{ event.description }}</p>
+        {% if event.sponsor %}
+        <div class="event-sponsor-strip">
+            {% if event.sponsor.sponsor_logo_url %}
+            <img src="{{ event.sponsor.sponsor_logo_url }}" alt="{{ event.sponsor.sponsor_name }}">
+            {% endif %}
+            <span>Призовий фонд надає <strong>{{ event.sponsor.sponsor_name }}</strong></span>
+        </div>
+        {% endif %}
+        {% if current_user.is_admin %}
+        <a class="btn-back" href="{{ url_for('edit_event', event_id=event.id) }}" style="margin:0;">✏️ Редагувати подію</a>
+        {% endif %}
     </div>
 </div>
 
