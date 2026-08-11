@@ -864,7 +864,7 @@ def migrate_user_columns():
     with db.engine.connect() as conn:
         for col_name, col_type in new_columns.items():
             if col_name not in existing_cols:
-                conn.execute(text(f"ALTER TABLE user ADD COLUMN {col_name} {col_type}"))
+                conn.execute(text(f'ALTER TABLE "user" ADD COLUMN {col_name} {col_type}'))
         conn.commit()
 
 
