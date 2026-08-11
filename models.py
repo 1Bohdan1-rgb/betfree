@@ -131,7 +131,8 @@ class SpinPrize(db.Model):
     voucher_percent = db.Column(db.Integer)
     weight = db.Column(db.Integer, nullable=False, default=1)
     sponsor_logo_url = db.Column(db.String(500))  # лого для цього призу; якщо пусто — береться лого спонсора
-    custom_label = db.Column(db.String(100))  # довільний текст на секторі (напр. "-10% на пиво 🍺"); якщо пусто — авто "-X%"
+    custom_label = db.Column(db.String(100))  # повний текст призу (напр. "-10% на пиво 🍺") — показується лише на екрані результату й у "Мої ваучери"; якщо пусто — авто "-X%"
+    custom_icon = db.Column(db.String(10))  # коротка іконка на самому секторі колеса (напр. "🍺"); якщо пусто — 🎁
 
 
 def generate_voucher_code():

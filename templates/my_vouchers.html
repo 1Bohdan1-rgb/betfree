@@ -15,7 +15,7 @@
 <div class="card voucher-card voucher-{{ v.badge_status }}">
     <div class="admin-user-header">
         <strong style="color:var(--text);">
-            {{ v.sponsor.sponsor_name }} — -{{ v.prize.voucher_percent if v.prize else '?' }}%
+            {{ v.sponsor.sponsor_name }} — {{ (v.prize.custom_label if v.prize else none) or ("-" ~ (v.prize.voucher_percent if v.prize else '?') ~ "%") }}
         </strong>
         {% if v.badge_status == 'used' %}
         <span class="voucher-status-badge status-used">Використано</span>

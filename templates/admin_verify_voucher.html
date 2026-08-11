@@ -20,7 +20,7 @@
     <h3 class="promo-code" style="display:inline-block;">{{ voucher.unique_code }}</h3>
     <p><strong>Користувач:</strong> {{ voucher.user.username }}</p>
     <p><strong>Спонсор:</strong> {{ voucher.sponsor.sponsor_name }}</p>
-    <p><strong>Знижка:</strong> -{{ voucher.prize.voucher_percent if voucher.prize else '?' }}%</p>
+    <p><strong>Приз:</strong> {{ (voucher.prize.custom_label if voucher.prize else none) or ("-" ~ (voucher.prize.voucher_percent if voucher.prize else '?') ~ "%") }}</p>
     <p><strong>Отримано:</strong> {{ voucher.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
     <p><strong>Дійсний до:</strong> {{ voucher.expires_at.strftime('%d.%m.%Y %H:%M') }}</p>
 

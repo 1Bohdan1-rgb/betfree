@@ -24,8 +24,8 @@
         <div class="wheel-pointer">▼</div>
         <div class="roulette-wheel" id="wheel">
             {% for sector in sectors %}
-            <div class="wheel-sector {{ 'sector-alt' if loop.index0 % 2 else '' }}{{ ' has-logo' if sector.logo_url else '' }}"
-                 style="clip-path: {{ sector.clip_path }};{% if sector.logo_url %} --logo-url: url('{{ sector.logo_url }}');{% endif %}"></div>
+            <div class="wheel-sector {{ 'sector-alt' if loop.index0 % 2 else '' }}"
+                 style="clip-path: {{ sector.clip_path }};"></div>
             {% endfor %}
             {% for sector in sectors %}
             <span class="sector-label" style="--angle: {{ (loop.index0 * 360 / sectors|length) + (360 / sectors|length / 2) }}deg;">{{ sector.label }}</span>

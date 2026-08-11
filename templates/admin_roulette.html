@@ -89,7 +89,7 @@
     <div class="admin-user-header" style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--border);">
         <span style="color:var(--text);">
             {% if p.prize_type == "voucher" %}
-            {{ p.custom_label or ("🎁 Ваучер -" ~ p.voucher_percent ~ "%") }}{% if p.sponsor_logo_url %} 🖼️{% endif %}
+            {{ p.custom_icon or "🎁" }} {{ p.custom_label or ("Ваучер -" ~ p.voucher_percent ~ "%") }}
             {% else %}
             🪙 {{ p.coins_amount|int if p.coins_amount == p.coins_amount|int else p.coins_amount }} монет
             {% endif %}
@@ -114,11 +114,11 @@
         <label>Відсоток знижки (якщо тип "Ваучер", обов'язково — визначає реальну знижку в системі)</label>
         <input type="number" step="1" name="voucher_percent" placeholder="Наприклад, 20">
 
-        <label>Текст на секторі колеса (якщо тип "Ваучер", необов'язково — інакше "🎁 -X%")</label>
-        <input type="text" name="custom_label" placeholder="Наприклад, -10% на пиво 🍺" maxlength="100">
+        <label>Іконка на секторі колеса (якщо тип "Ваучер", необов'язково — інакше 🎁)</label>
+        <input type="text" name="custom_icon" placeholder="Наприклад, 🍺" maxlength="10">
 
-        <label>URL лого для сектора (якщо тип "Ваучер", необов'язково — інакше береться лого спонсора вище)</label>
-        <input type="url" name="sponsor_logo_url" placeholder="https://...">
+        <label>Повний текст призу — тільки на екрані результату й у "Мої ваучери" (якщо тип "Ваучер", необов'язково — інакше "-X%")</label>
+        <input type="text" name="custom_label" placeholder="Наприклад, -10% на пиво 🍺" maxlength="100">
 
         <label>Вага (більше — частіше випадає)</label>
         <input type="number" step="1" name="weight" value="10" required>
