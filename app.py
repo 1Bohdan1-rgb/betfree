@@ -54,22 +54,24 @@ def get_wheel_sectors(sponsor):
         for prize in sponsor.prizes:
             if prize.prize_type == "voucher":
                 logo_url = prize.sponsor_logo_url or sponsor.sponsor_logo_url
+                label = prize.custom_label or f"🎁 -{prize.voucher_percent}%"
                 sectors.append({
                     "type": "voucher",
-                    "label": f"🎁 -{prize.voucher_percent}%",
+                    "label": label,
                     "percent": prize.voucher_percent,
                     "logo_url": logo_url,
                     "prize_id": prize.id,
                 })
             else:
                 amount = prize.coins_amount
-                label = str(int(amount)) if amount == int(amount) else str(amount)
+                amount_str = str(int(amount)) if amount == int(amount) else str(amount)
+                label = f"🪙 {amount_str}"
                 sectors.append({"type": "coins", "label": label, "amount": amount, "logo_url": None, "prize_id": prize.id})
             weights.append(max(1, prize.weight))
         return sectors, weights
 
     amounts = get_spin_sectors_from_range(sponsor)
-    sectors = [{"type": "coins", "label": str(v), "amount": v, "logo_url": None} for v in amounts]
+    sectors = [{"type": "coins", "label": f"🪙 {v}", "amount": v, "logo_url": None} for v in amounts]
     return sectors, SPIN_SECTOR_WEIGHTS
 
 
@@ -459,6 +461,7 @@ def roulette():
             result = dict(
                 prize_type="voucher",
                 percent=chosen["percent"],
+                label=chosen["label"],
                 promo_description=sponsor.promo_description if sponsor else None,
                 voucher_code=voucher.unique_code,
                 voucher_expires=voucher.expires_at.strftime("%d.%m.%Y"),
@@ -597,6 +600,7 @@ def add_prize(sponsor_id):
     if prize_type == "voucher":
         prize.voucher_percent = int(request.form["voucher_percent"])
         prize.sponsor_logo_url = request.form.get("sponsor_logo_url", "").strip() or None
+        prize.custom_label = request.form.get("custom_label", "").strip() or None
     else:
         prize.coins_amount = float(request.form["coins_amount"])
 
@@ -844,6 +848,7 @@ def migrate_spin_prize_columns():
     existing_cols = {col["name"] for col in inspector.get_columns("spin_prize")}
     new_columns = {
         "sponsor_logo_url": "VARCHAR(500)",
+        "custom_label": "VARCHAR(100)",
     }
     with db.engine.connect() as conn:
         for col_name, col_type in new_columns.items():

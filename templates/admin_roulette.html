@@ -89,9 +89,9 @@
     <div class="admin-user-header" style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--border);">
         <span style="color:var(--text);">
             {% if p.prize_type == "voucher" %}
-            🎁 Ваучер -{{ p.voucher_percent }}%{% if p.sponsor_logo_url %} 🖼️{% endif %}
+            {{ p.custom_label or ("🎁 Ваучер -" ~ p.voucher_percent ~ "%") }}{% if p.sponsor_logo_url %} 🖼️{% endif %}
             {% else %}
-            💰 {{ p.coins_amount|int if p.coins_amount == p.coins_amount|int else p.coins_amount }} монет
+            🪙 {{ p.coins_amount|int if p.coins_amount == p.coins_amount|int else p.coins_amount }} монет
             {% endif %}
             <span class="event-meta" style="display:inline;">(вага {{ p.weight }})</span>
         </span>
@@ -104,15 +104,18 @@
     <form method="POST" action="{{ url_for('add_prize', sponsor_id=s.id) }}">
         <label>Тип призу</label>
         <select name="prize_type" required>
-            <option value="coins">💰 Монети</option>
+            <option value="coins">🪙 Монети</option>
             <option value="voucher">🎁 Ваучер (знижка)</option>
         </select>
 
         <label>Сума монет (якщо тип "Монети")</label>
         <input type="number" step="0.01" name="coins_amount" placeholder="Наприклад, 20">
 
-        <label>Відсоток знижки (якщо тип "Ваучер")</label>
+        <label>Відсоток знижки (якщо тип "Ваучер", обов'язково — визначає реальну знижку в системі)</label>
         <input type="number" step="1" name="voucher_percent" placeholder="Наприклад, 20">
+
+        <label>Текст на секторі колеса (якщо тип "Ваучер", необов'язково — інакше "🎁 -X%")</label>
+        <input type="text" name="custom_label" placeholder="Наприклад, -10% на пиво 🍺" maxlength="100">
 
         <label>URL лого для сектора (якщо тип "Ваучер", необов'язково — інакше береться лого спонсора вище)</label>
         <input type="url" name="sponsor_logo_url" placeholder="https://...">

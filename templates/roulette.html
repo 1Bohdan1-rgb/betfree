@@ -6,12 +6,16 @@
 {% block content %}
 
 {% if sponsor %}
-<div class="card" style="text-align:center;">
+<div class="card sponsor-banner">
     {% if sponsor.sponsor_logo_url %}
     <img class="sponsor-logo" src="{{ sponsor.sponsor_logo_url }}" alt="{{ sponsor.sponsor_name }}">
     {% endif %}
-    <p class="event-meta" style="justify-content:center;">Спонсор рулетки</p>
-    <h3 style="margin:0;">{{ sponsor.sponsor_name }}</h3>
+    <h2 class="sponsor-heading">Рулетка від {{ sponsor.sponsor_name }}</h2>
+    <p class="event-meta" style="justify-content:center;">Призи та ваучери надає спонсор</p>
+</div>
+{% else %}
+<div class="card sponsor-banner">
+    <h2 class="sponsor-heading">Рулетка BetFree</h2>
 </div>
 {% endif %}
 
@@ -141,7 +145,7 @@
                     spinning = false;
 
                     if (data.prize_type === "voucher") {
-                        amountEl.textContent = "🎁 Ваучер -" + data.percent + "%!";
+                        amountEl.textContent = (data.label || ("🎁 Ваучер -" + data.percent + "%")) + "!";
                         promoDesc.textContent = data.promo_description || ("Знижка " + data.percent + "%");
                         promoCode.textContent = data.voucher_code;
                         promoExpiry.textContent = "Дійсний до " + data.voucher_expires;
