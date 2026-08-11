@@ -122,12 +122,15 @@ if not _SECRET_KEY:
     )
 app.config["SECRET_KEY"] = _SECRET_KEY
 
-# На Render (та деяких інших хостах) DATABASE_URL віддається у форматі
-# "postgres://...", а SQLAlchemy 1.4+/psycopg2 вимагають "postgresql://" —
-# без конвертації create_engine впаде з ValueError.
+# На Render (та деяких інших хостах) DATABASE_URL віддається як "postgres://"
+# або "postgresql://", а нам потрібен диалект psycopg3 — "postgresql+psycopg://".
+# Без явного диалекту SQLAlchemy шукатиме psycopg2 за замовчуванням, якого
+# в проєкті більше нема (замінили на psycopg[binary]) — create_engine впаде.
 _DATABASE_URL = os.environ.get("DATABASE_URL")
 if _DATABASE_URL and _DATABASE_URL.startswith("postgres://"):
-    _DATABASE_URL = _DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    _DATABASE_URL = _DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif _DATABASE_URL and _DATABASE_URL.startswith("postgresql://"):
+    _DATABASE_URL = _DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = _DATABASE_URL or "sqlite:///betfree.db"
 db.init_app(app)
