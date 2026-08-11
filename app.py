@@ -1,6 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from sqlalchemy import inspect, text
 import random
 import math
@@ -21,6 +21,12 @@ REMEMBER_ME_COOKIE = "remembered_username"
 SPIN_COOLDOWN_HOURS = 24
 DEFAULT_SPIN_MIN = 5
 DEFAULT_SPIN_MAX = 30
+MIN_REGISTRATION_AGE = 18
+
+
+def calculate_age(birth_date):
+    today = date.today()
+    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
 # 8 секторів колеса: частки діапазону [min_reward, max_reward] і вага ймовірності
 # (переважання менших сум, останній сектор — рідкісний максимальний приз)
@@ -303,6 +309,8 @@ def register():
         username = request.form["username"]
         email = request.form["email"]
         password = request.form["password"]
+        date_of_birth_raw = request.form.get("date_of_birth", "").strip()
+        age_confirmed = bool(request.form.get("age_confirm"))
 
         if User.query.filter_by(username=username).first():
             flash("Юзернейм вже зайнятий")
@@ -312,7 +320,26 @@ def register():
             flash("Ця електронна пошта вже зареєстрована")
             return redirect(url_for("register"))
 
-        user = User(username=username, email=email, balance=100.0)  # стартовий тестовий баланс
+        try:
+            date_of_birth = datetime.strptime(date_of_birth_raw, "%Y-%m-%d").date()
+        except ValueError:
+            flash("Вкажіть коректну дату народження")
+            return redirect(url_for("register"))
+
+        if date_of_birth > date.today():
+            flash("Вкажіть коректну дату народження")
+            return redirect(url_for("register"))
+
+        if not age_confirmed or calculate_age(date_of_birth) < MIN_REGISTRATION_AGE:
+            flash("Реєстрація доступна тільки для осіб від 18 років")
+            return redirect(url_for("register"))
+
+        user = User(
+            username=username,
+            email=email,
+            balance=100.0,  # стартовий тестовий баланс
+            date_of_birth=date_of_birth,
+        )
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -832,6 +859,7 @@ def migrate_user_columns():
         "is_verified": "BOOLEAN DEFAULT 0",
         "last_spin_at": "DATETIME",
         "spin_ready_notified": "BOOLEAN DEFAULT 0",
+        "date_of_birth": "DATE",
     }
     with db.engine.connect() as conn:
         for col_name, col_type in new_columns.items():

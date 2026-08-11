@@ -43,6 +43,7 @@ class User(db.Model):
     country = db.Column(db.String(80))
     phone = db.Column(db.String(30))
     is_verified = db.Column(db.Boolean, default=False)
+    date_of_birth = db.Column(db.Date, nullable=True)  # для перевірки 18+ при реєстрації
     last_spin_at = db.Column(db.DateTime, nullable=True)  # час останньої прокрутки рулетки
     spin_ready_notified = db.Column(db.Boolean, default=False)  # чи вже надіслано push про доступність рулетки
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

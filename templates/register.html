@@ -13,6 +13,12 @@
         <input type="email" name="email" required>
         <label>Пароль</label>
         <input type="password" name="password" required>
+        <label>Дата народження</label>
+        <input type="date" name="date_of_birth" required>
+        <div class="checkbox-row">
+            <input type="checkbox" name="age_confirm" id="age_confirm" required>
+            <label for="age_confirm">Підтверджую, що мені виповнилось 18 років</label>
+        </div>
         <button class="btn" type="submit">Зареєструватись</button>
     </form>
     <p>Вже є акаунт? <a href="{{ url_for('login') }}">Увійти</a></p>
