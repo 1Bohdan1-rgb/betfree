@@ -91,11 +91,12 @@ class EventOption(db.Model):
 
 
 class Bet(db.Model):
+    """Прогноз користувача на подію (pool-модель, без суми ставки):
+    приз ділиться порівну між усіма, хто вгадав переможця."""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
     option_id = db.Column(db.Integer, db.ForeignKey("event_option.id"), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 

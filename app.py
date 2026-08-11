@@ -736,27 +736,21 @@ def place_bet(event_id):
     event = Event.query.get_or_404(event_id)
 
     if event.status != "open":
-        flash("Ставки на цю подію закрито")
+        flash("Прогнози на цю подію закрито")
         return redirect(url_for("view_event", event_id=event_id))
 
     option_id = int(request.form["option_id"])
-    amount = float(request.form["amount"])
-
-    if amount <= 0 or amount > current_user.balance:
-        flash("Недостатньо коштів на балансі")
-        return redirect(url_for("view_event", event_id=event_id))
 
     existing = Bet.query.filter_by(user_id=current_user.id, event_id=event_id).first()
     if existing:
-        flash("Ви вже зробили ставку на цю подію")
+        flash("Ви вже зробили прогноз на цю подію")
         return redirect(url_for("view_event", event_id=event_id))
 
-    current_user.balance -= amount
-    bet = Bet(user_id=current_user.id, event_id=event_id, option_id=option_id, amount=amount)
+    bet = Bet(user_id=current_user.id, event_id=event_id, option_id=option_id)
     db.session.add(bet)
     db.session.commit()
 
-    flash("Ставку прийнято!")
+    flash("Прогноз прийнято!")
     return redirect(url_for("view_event", event_id=event_id))
 
 
@@ -776,14 +770,12 @@ def settle_event(event_id):
         opt.is_winner = (opt.id == winning_option_id)
 
     winning_bets = Bet.query.filter_by(event_id=event_id, option_id=winning_option_id).all()
-    total_winning_amount = sum(b.amount for b in winning_bets)
 
-    # розподіл призового фонду пропорційно до розміру ставки переможців
-    if total_winning_amount > 0:
+    # pool-модель: приз ділиться порівну між усіма, хто вгадав переможця;
+    # якщо ніхто не вгадав — призовий фонд нікому не роздається
+    if winning_bets:
+        payout_amount = round(event.prize_pool / len(winning_bets), 2)
         for bet in winning_bets:
-            share = bet.amount / total_winning_amount
-            payout_amount = round(event.prize_pool * share, 2)
-
             user = User.query.get(bet.user_id)
             user.balance += payout_amount
 
@@ -875,6 +867,20 @@ def migrate_voucher_redemption_columns():
         conn.commit()
 
 
+def migrate_bet_columns():
+    """Видаляє застаріле поле Bet.amount — прогнози стали pool-моделлю
+    без суми ставки (приз ділиться порівну між усіма, хто вгадав)."""
+    inspector = inspect(db.engine)
+    if "bet" not in inspector.get_table_names():
+        return
+
+    existing_cols = {col["name"] for col in inspector.get_columns("bet")}
+    if "amount" in existing_cols:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE bet DROP COLUMN amount"))
+            conn.commit()
+
+
 # Ініціалізація БД/планувальника виконується на рівні модуля (а не лише
 # всередині `if __name__ == "__main__":`), бо під gunicorn (Render тощо)
 # файл лише імпортується як WSGI-модуль — app.run() ніколи не викликається,
@@ -887,6 +893,7 @@ with app.app_context():
     migrate_sponsor_spin_columns()
     migrate_spin_prize_columns()
     migrate_voucher_redemption_columns()
+    migrate_bet_columns()
     # створюємо тестового адміна, якщо його ще нема
     if not User.query.filter_by(username="admin").first():
         admin = User(username="admin", email="admin@test.com", balance=0, is_admin=True)
