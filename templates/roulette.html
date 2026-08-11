@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Рулетка{% endblock %}
+{% block title %}{{ t('roulette.title') }}{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+<a class="btn-back" href="{{ url_for('dashboard') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 
@@ -10,12 +10,12 @@
     {% if sponsor.sponsor_logo_url %}
     <img class="sponsor-logo" src="{{ sponsor.sponsor_logo_url }}" alt="{{ sponsor.sponsor_name }}">
     {% endif %}
-    <h2 class="sponsor-heading">Рулетка від {{ sponsor.sponsor_name }}</h2>
-    <p class="event-meta" style="justify-content:center;">Призи та ваучери надає спонсор</p>
+    <h2 class="sponsor-heading">{{ t('roulette.sponsor_heading', sponsor=sponsor.sponsor_name) }}</h2>
+    <p class="event-meta" style="justify-content:center;">{{ t('roulette.sponsor_sub') }}</p>
 </div>
 {% else %}
 <div class="card sponsor-banner">
-    <h2 class="sponsor-heading">Рулетка BetFree</h2>
+    <h2 class="sponsor-heading">{{ t('roulette.default_heading') }}</h2>
 </div>
 {% endif %}
 
@@ -33,10 +33,10 @@
         </div>
     </div>
 
-    <button class="btn btn-block btn-spin" type="button" id="spin-btn" {{ "disabled" if not can_spin else "" }}>Крутити</button>
+    <button class="btn btn-block btn-spin" type="button" id="spin-btn" {{ "disabled" if not can_spin else "" }}>{{ t('roulette.spin_btn') }}</button>
 
     <p class="event-meta" id="cooldown-row" style="justify-content:center; margin-top:10px; {{ '' if not can_spin else 'display:none;' }}">
-        Наступна спроба через <strong id="countdown" data-next="{{ (next_available_at.isoformat() ~ 'Z') if next_available_at else '' }}">--:--:--</strong>
+        {{ t('roulette.next_attempt') }} <strong id="countdown" data-next="{{ (next_available_at.isoformat() ~ 'Z') if next_available_at else '' }}">--:--:--</strong>
     </p>
 
     <div class="spin-result" id="spin-result" style="display:none;">
@@ -57,6 +57,15 @@
 (function () {
     const SECTOR_COUNT = {{ sectors|length }};
     const SECTOR_ANGLE = 360 / SECTOR_COUNT;
+
+    const I18N = {
+        error: {{ t('common.error')|tojson }},
+        connectionError: {{ t('common.connection_error')|tojson }},
+        voucherFallback: {{ t('roulette.voucher_fallback_label')|tojson }},
+        discountFallback: {{ t('roulette.discount_fallback')|tojson }},
+        validUntil: {{ t('roulette.valid_until_prefix')|tojson }},
+        coinsWon: {{ t('roulette.coins_won')|tojson }},
+    };
 
     const wheel = document.getElementById("wheel");
     const spinBtn = document.getElementById("spin-btn");
@@ -135,7 +144,7 @@
                 if (!data.ok) {
                     spinning = false;
                     spinBtn.disabled = false;
-                    alert(data.message || "Помилка");
+                    alert(data.message || I18N.error);
                     return;
                 }
 
@@ -145,13 +154,13 @@
                     spinning = false;
 
                     if (data.prize_type === "voucher") {
-                        amountEl.textContent = (data.label || ("🎁 Ваучер -" + data.percent + "%")) + "!";
-                        promoDesc.textContent = data.promo_description || ("Знижка " + data.percent + "%");
+                        amountEl.textContent = (data.label || I18N.voucherFallback.replace("{percent}", data.percent)) + "!";
+                        promoDesc.textContent = data.promo_description || I18N.discountFallback.replace("{percent}", data.percent);
                         promoCode.textContent = data.voucher_code;
-                        promoExpiry.textContent = "Дійсний до " + data.voucher_expires;
+                        promoExpiry.textContent = I18N.validUntil.replace("{date}", data.voucher_expires);
                         promoCard.style.display = "block";
                     } else {
-                        amountEl.textContent = "+" + data.amount + " монет 🎉";
+                        amountEl.textContent = I18N.coinsWon.replace("{amount}", data.amount);
                     }
 
                     resultBox.style.display = "block";
@@ -167,7 +176,7 @@
             .catch(function () {
                 spinning = false;
                 spinBtn.disabled = false;
-                alert("Помилка з'єднання");
+                alert(I18N.connectionError);
             });
     });
 })();

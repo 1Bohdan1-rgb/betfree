@@ -1,31 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Користувачі{% endblock %}
+{% block title %}{{ t('admin.users_title') }}{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+<a class="btn-back" href="{{ url_for('dashboard') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 
 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
-    <a class="btn" href="{{ url_for('admin_roulette') }}" style="display:inline-flex;">🎰 Керування рулеткою</a>
-    <a class="btn" href="{{ url_for('admin_verify_voucher') }}" style="display:inline-flex;">🎟️ Перевірка ваучера</a>
+    <a class="btn" href="{{ url_for('admin_roulette') }}" style="display:inline-flex;">{{ t('admin.roulette_mgmt_btn') }}</a>
+    <a class="btn" href="{{ url_for('admin_verify_voucher') }}" style="display:inline-flex;">{{ t('admin.verify_voucher_btn') }}</a>
 </div>
 
-<h2>Користувачі</h2>
+<h2>{{ t('admin.users_title') }}</h2>
 
 {% for u in users %}
 <div class="card">
     <div class="admin-user-header">
         <strong style="color:#f5f5f5;">{{ u.username }}</strong>
         {% if u.is_verified %}
-        <span class="verify-badge verified">✅ Верифіковано</span>
+        <span class="verify-badge verified">✅ {{ t('common.verified') }}</span>
         {% else %}
-        <span class="verify-badge unverified">⏳ Не верифіковано</span>
+        <span class="verify-badge unverified">⏳ {{ t('common.unverified') }}</span>
         {% endif %}
     </div>
     <p class="event-meta">{{ u.email }}{% if u.country %} · {{ u.country }}{% endif %}</p>
-    <p class="event-meta">💰 {{ "%.2f"|format(u.balance) }} монет</p>
+    <p class="event-meta">💰 {{ "%.2f"|format(u.balance) }} {{ t('common.coins_word') }}</p>
     <form method="POST" action="{{ url_for('toggle_verify', user_id=u.id) }}">
-        <button class="btn btn-block" type="submit">{{ "Скасувати верифікацію" if u.is_verified else "Верифікувати" }}</button>
+        <button class="btn btn-block" type="submit">{{ t('admin.cancel_verification') if u.is_verified else t('admin.verify_btn') }}</button>
     </form>
 </div>
 {% endfor %}

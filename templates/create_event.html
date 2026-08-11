@@ -1,48 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Створити подію{% endblock %}
+{% block title %}{{ t('events.create_title') }}{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+<a class="btn-back" href="{{ url_for('dashboard') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 <div class="card">
-    <h2>Нова подія</h2>
+    <h2>{{ t('events.create_title') }}</h2>
     <form method="POST">
-        <label>Назва</label>
+        <label>{{ t('events.title_label') }}</label>
         <input type="text" name="title" required>
 
-        <label>Опис</label>
+        <label>{{ t('events.description_label') }}</label>
         <textarea name="description" rows="3"></textarea>
 
-        <label>Вид спорту</label>
+        <label>{{ t('events.sport_type_label') }}</label>
         <select name="sport_type">
             {% for value, icon, label in sport_choices %}
-            <option value="{{ value }}">{{ icon }} {{ label }}</option>
+            <option value="{{ value }}">{{ icon }} {{ t(label) }}</option>
             {% endfor %}
         </select>
 
-        <label>Призовий фонд (монети)</label>
+        <label>{{ t('events.prize_pool_label') }}</label>
         <input type="number" step="0.01" name="prize_pool" required>
 
-        <label>Спонсор призового фонду (необов'язково)</label>
+        <label>{{ t('events.sponsor_label') }}</label>
         <select name="sponsor_spin_id">
-            <option value="">Без спонсора</option>
+            <option value="">{{ t('events.no_sponsor_option') }}</option>
             {% for s in sponsors %}
             <option value="{{ s.id }}">{{ s.sponsor_name }}</option>
             {% endfor %}
         </select>
 
-        <label>Дата матчу</label>
+        <label>{{ t('events.match_date_label') }}</label>
         <input type="datetime-local" name="match_date" required>
 
-        <label>Варіанти прогнозу</label>
-        <label>Варіант 1</label>
+        <label>{{ t('events.options_label') }}</label>
+        <label>{{ t('events.option_n', n=1) }}</label>
         <input type="text" name="options" required>
-        <label>Варіант 2</label>
+        <label>{{ t('events.option_n', n=2) }}</label>
         <input type="text" name="options" required>
-        <label>Варіант 3 (необов'язково)</label>
+        <label>{{ t('events.option_3_optional') }}</label>
         <input type="text" name="options">
 
-        <button class="btn" type="submit">Створити подію</button>
+        <button class="btn" type="submit">{{ t('events.create_submit') }}</button>
     </form>
 </div>
 {% endblock %}

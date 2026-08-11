@@ -13,6 +13,7 @@ from models import (
     db, User, Event, EventOption, Bet, Payout, SPORT_CHOICES, SponsorSpin, SpinPrize,
     VoucherRedemption, generate_voucher_code, PushSubscription,
 )
+from translations import t, get_locale, LANGUAGES, TRANSLATIONS
 
 VOUCHER_EXPIRY_WARNING_DAYS = 2
 
@@ -144,6 +145,20 @@ elif _DATABASE_URL and _DATABASE_URL.startswith("postgresql://"):
 app.config["SQLALCHEMY_DATABASE_URI"] = _DATABASE_URL or "sqlite:///betfree.db"
 db.init_app(app)
 
+# ---------- МУЛЬТИМОВНІСТЬ (EN / UK / DE) ----------
+
+
+@app.context_processor
+def inject_i18n():
+    return dict(t=t, current_lang=get_locale(), LANGUAGES=LANGUAGES)
+
+
+@app.route("/set-language/<lang_code>")
+def set_language(lang_code):
+    if lang_code in TRANSLATIONS:
+        session["lang"] = lang_code
+    return redirect(request.referrer or url_for("dashboard"))
+
 # ---------- WEB PUSH: VAPID-ключі ----------
 # Ключі генеруються скриптом generate_vapid_keys.py в instance/ (поза git).
 # Якщо ключів ще нема — push просто вимкнений, решта застосунку працює як завжди.
@@ -218,7 +233,7 @@ def push_subscribe():
     auth = keys.get("auth")
 
     if not endpoint or not p256dh or not auth:
-        return jsonify(ok=False, message="Некоректні дані підписки"), 400
+        return jsonify(ok=False, message=t("push.invalid_subscription")), 400
 
     existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
     if existing:
@@ -256,9 +271,13 @@ def check_and_send_notifications():
             percent = voucher.prize.voucher_percent if voucher.prize else "?"
             send_push_notification(
                 voucher.user_id,
-                "Ваучер скоро згорить",
-                f"Ваучер {voucher.sponsor.sponsor_name} -{percent}% спливає "
-                f"{voucher.expires_at.strftime('%d.%m.%Y %H:%M')}",
+                t("push.voucher_expiring_title"),
+                t(
+                    "push.voucher_expiring_body",
+                    sponsor=voucher.sponsor.sponsor_name,
+                    percent=percent,
+                    date=voucher.expires_at.strftime('%d.%m.%Y %H:%M'),
+                ),
             )
             voucher.expiry_reminder_sent = True
         if expiring_vouchers:
@@ -272,7 +291,7 @@ def check_and_send_notifications():
         for user in ready_users:
             if user.last_spin_at + timedelta(hours=SPIN_COOLDOWN_HOURS) <= now:
                 send_push_notification(
-                    user.id, "Рулетка знову доступна!", "Ваша щоденна прокрутка вже готова 🎰"
+                    user.id, t("push.roulette_ready_title"), t("push.roulette_ready_body")
                 )
                 user.spin_ready_notified = True
                 notified_any = True
@@ -313,25 +332,25 @@ def register():
         age_confirmed = bool(request.form.get("age_confirm"))
 
         if User.query.filter_by(username=username).first():
-            flash("Юзернейм вже зайнятий")
+            flash(t("auth.username_taken"))
             return redirect(url_for("register"))
 
         if User.query.filter_by(email=email).first():
-            flash("Ця електронна пошта вже зареєстрована")
+            flash(t("auth.email_taken"))
             return redirect(url_for("register"))
 
         try:
             date_of_birth = datetime.strptime(date_of_birth_raw, "%Y-%m-%d").date()
         except ValueError:
-            flash("Вкажіть коректну дату народження")
+            flash(t("auth.invalid_birthdate"))
             return redirect(url_for("register"))
 
         if date_of_birth > date.today():
-            flash("Вкажіть коректну дату народження")
+            flash(t("auth.invalid_birthdate"))
             return redirect(url_for("register"))
 
         if not age_confirmed or calculate_age(date_of_birth) < MIN_REGISTRATION_AGE:
-            flash("Реєстрація доступна тільки для осіб від 18 років")
+            flash(t("auth.age_restriction"))
             return redirect(url_for("register"))
 
         user = User(
@@ -343,7 +362,7 @@ def register():
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
-        flash("Реєстрація успішна, увійдіть")
+        flash(t("auth.register_success"))
         return redirect(url_for("login"))
 
     return render_template("register.html")
@@ -369,7 +388,7 @@ def login():
             else:
                 response.delete_cookie(REMEMBER_ME_COOKIE)
             return response
-        flash("Невірний логін або пароль")
+        flash(t("auth.invalid_credentials"))
 
     remembered_username = request.cookies.get(REMEMBER_ME_COOKIE, "")
     return render_template("login.html", remembered_username=remembered_username)
@@ -392,7 +411,7 @@ def profile():
         current_user.country = request.form.get("country", "").strip() or None
         current_user.phone = request.form.get("phone", "").strip() or None
         db.session.commit()
-        flash("Профіль оновлено")
+        flash(t("profile.updated"))
         return redirect(url_for("profile"))
 
     active_voucher_count = VoucherRedemption.query.filter(
@@ -407,7 +426,7 @@ def profile():
 @app.route("/profile/withdraw", methods=["POST"])
 @login_required
 def profile_withdraw():
-    flash("Функція виведення буде доступна після інтеграції платіжної системи")
+    flash(t("profile.withdraw_soon"))
     return redirect(url_for("profile"))
 
 
@@ -428,7 +447,7 @@ def my_vouchers():
 @login_required
 def admin_users():
     if not current_user.is_admin:
-        flash("Тільки адмін може переглядати цю сторінку")
+        flash(t("admin.only_admin_view"))
         return redirect(url_for("dashboard"))
 
     users = User.query.order_by(User.username).all()
@@ -439,13 +458,13 @@ def admin_users():
 @login_required
 def toggle_verify(user_id):
     if not current_user.is_admin:
-        flash("Тільки адмін може виконувати цю дію")
+        flash(t("admin.only_admin_action"))
         return redirect(url_for("dashboard"))
 
     user = User.query.get_or_404(user_id)
     user.is_verified = not user.is_verified
     db.session.commit()
-    flash(f"Статус верифікації користувача {user.username} оновлено")
+    flash(t("admin.verify_toggled", username=user.username))
     return redirect(url_for("admin_users"))
 
 
@@ -463,7 +482,7 @@ def roulette():
 
     if request.method == "POST":
         if not can_spin:
-            return jsonify(ok=False, message="Наступна прокрутка ще не доступна"), 400
+            return jsonify(ok=False, message=t("roulette.not_available")), 400
 
         # той самий (перемішаний) порядок секторів, що бачив користувач на сторінці,
         # інакше sector_index не відповідатиме тому, що намальовано на колесі
@@ -538,7 +557,7 @@ def roulette():
 @login_required
 def admin_roulette():
     if not current_user.is_admin:
-        flash("Тільки адмін може переглядати цю сторінку")
+        flash(t("admin.only_admin_view"))
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
@@ -551,7 +570,7 @@ def admin_roulette():
         voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
 
         if min_reward > max_reward:
-            flash("Мінімальна винагорода не може бути більшою за максимальну")
+            flash(t("admin.min_max_error"))
             return redirect(url_for("admin_roulette"))
 
         sponsor = SponsorSpin(
@@ -565,7 +584,7 @@ def admin_roulette():
         )
         db.session.add(sponsor)
         db.session.commit()
-        flash("Спонсора рулетки додано")
+        flash(t("admin.sponsor_added"))
         return redirect(url_for("admin_roulette"))
 
     sponsors = SponsorSpin.query.order_by(SponsorSpin.created_at.desc()).all()
@@ -576,7 +595,7 @@ def admin_roulette():
 @login_required
 def edit_sponsor(sponsor_id):
     if not current_user.is_admin:
-        flash("Тільки адмін може виконувати цю дію")
+        flash(t("admin.only_admin_action"))
         return redirect(url_for("dashboard"))
 
     sponsor = SponsorSpin.query.get_or_404(sponsor_id)
@@ -584,7 +603,7 @@ def edit_sponsor(sponsor_id):
     max_reward = float(request.form["max_reward"])
 
     if min_reward > max_reward:
-        flash("Мінімальна винагорода не може бути більшою за максимальну")
+        flash(t("admin.min_max_error"))
         return redirect(url_for("admin_roulette"))
 
     sponsor.sponsor_name = request.form["sponsor_name"].strip()
@@ -595,7 +614,7 @@ def edit_sponsor(sponsor_id):
     sponsor.promo_description = request.form.get("promo_description", "").strip() or None
     sponsor.voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
     db.session.commit()
-    flash(f"Спонсора {sponsor.sponsor_name} оновлено")
+    flash(t("admin.sponsor_updated", name=sponsor.sponsor_name))
     return redirect(url_for("admin_roulette"))
 
 
@@ -603,13 +622,14 @@ def edit_sponsor(sponsor_id):
 @login_required
 def toggle_sponsor(sponsor_id):
     if not current_user.is_admin:
-        flash("Тільки адмін може виконувати цю дію")
+        flash(t("admin.only_admin_action"))
         return redirect(url_for("dashboard"))
 
     sponsor = SponsorSpin.query.get_or_404(sponsor_id)
     sponsor.is_active = not sponsor.is_active
     db.session.commit()
-    flash(f"Спонсора {sponsor.sponsor_name} {'активовано' if sponsor.is_active else 'деактивовано'}")
+    status_word = t("common.activated") if sponsor.is_active else t("common.deactivated")
+    flash(t("admin.sponsor_toggled", name=sponsor.sponsor_name, status=status_word))
     return redirect(url_for("admin_roulette"))
 
 
@@ -617,7 +637,7 @@ def toggle_sponsor(sponsor_id):
 @login_required
 def add_prize(sponsor_id):
     if not current_user.is_admin:
-        flash("Тільки адмін може виконувати цю дію")
+        flash(t("admin.only_admin_action"))
         return redirect(url_for("dashboard"))
 
     sponsor = SponsorSpin.query.get_or_404(sponsor_id)
@@ -634,7 +654,7 @@ def add_prize(sponsor_id):
 
     db.session.add(prize)
     db.session.commit()
-    flash("Приз додано до спонсора")
+    flash(t("admin.prize_added"))
     return redirect(url_for("admin_roulette"))
 
 
@@ -642,13 +662,13 @@ def add_prize(sponsor_id):
 @login_required
 def delete_prize(prize_id):
     if not current_user.is_admin:
-        flash("Тільки адмін може виконувати цю дію")
+        flash(t("admin.only_admin_action"))
         return redirect(url_for("dashboard"))
 
     prize = SpinPrize.query.get_or_404(prize_id)
     db.session.delete(prize)
     db.session.commit()
-    flash("Приз видалено")
+    flash(t("admin.prize_deleted"))
     return redirect(url_for("admin_roulette"))
 
 
@@ -658,7 +678,7 @@ def delete_prize(prize_id):
 @login_required
 def admin_verify_voucher():
     if not current_user.is_admin:
-        flash("Тільки адмін може переглядати цю сторінку")
+        flash(t("admin.only_admin_view"))
         return redirect(url_for("dashboard"))
 
     voucher = None
@@ -671,19 +691,19 @@ def admin_verify_voucher():
             voucher = VoucherRedemption.query.get_or_404(int(request.form["voucher_id"]))
             searched_code = voucher.unique_code
             if voucher.is_used:
-                flash("Ваучер вже використано")
+                flash(t("admin.voucher_already_used"))
             elif voucher.is_expired:
-                flash("Ваучер прострочено")
+                flash(t("admin.voucher_expired_flash"))
             else:
                 voucher.is_used = True
                 voucher.used_at = datetime.utcnow()
                 db.session.commit()
-                flash(f"Ваучер {voucher.unique_code} підтверджено як використаний")
+                flash(t("admin.voucher_confirmed", code=voucher.unique_code))
         else:
             searched_code = request.form.get("unique_code", "").strip().upper()
             voucher = VoucherRedemption.query.filter_by(unique_code=searched_code).first()
             if not voucher:
-                flash("Ваучер з таким кодом не знайдено")
+                flash(t("admin.voucher_not_found"))
 
     return render_template("admin_verify_voucher.html", voucher=voucher, searched_code=searched_code)
 
@@ -715,7 +735,7 @@ def dashboard():
 @login_required
 def create_event():
     if not current_user.is_admin:
-        flash("Тільки адмін може створювати події")
+        flash(t("events.only_admin_create"))
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
@@ -744,7 +764,7 @@ def create_event():
                 db.session.add(EventOption(event_id=event.id, option_text=opt_text.strip()))
 
         db.session.commit()
-        flash("Подію створено")
+        flash(t("events.created"))
         return redirect(url_for("dashboard"))
 
     sponsors = SponsorSpin.query.filter_by(is_active=True).order_by(SponsorSpin.sponsor_name).all()
@@ -755,7 +775,7 @@ def create_event():
 @login_required
 def edit_event(event_id):
     if not current_user.is_admin:
-        flash("Тільки адмін може редагувати події")
+        flash(t("events.only_admin_edit"))
         return redirect(url_for("dashboard"))
 
     event = Event.query.get_or_404(event_id)
@@ -770,7 +790,7 @@ def edit_event(event_id):
         event.sponsor_spin_id = int(sponsor_spin_id) if sponsor_spin_id else None
 
         db.session.commit()
-        flash("Подію оновлено")
+        flash(t("events.updated"))
         return redirect(url_for("view_event", event_id=event.id))
 
     sponsors = SponsorSpin.query.filter_by(is_active=True).order_by(SponsorSpin.sponsor_name).all()
@@ -793,21 +813,21 @@ def place_bet(event_id):
     event = Event.query.get_or_404(event_id)
 
     if event.status != "open":
-        flash("Прогнози на цю подію закрито")
+        flash(t("events.closed"))
         return redirect(url_for("view_event", event_id=event_id))
 
     option_id = int(request.form["option_id"])
 
     existing = Bet.query.filter_by(user_id=current_user.id, event_id=event_id).first()
     if existing:
-        flash("Ви вже зробили прогноз на цю подію")
+        flash(t("events.already_bet"))
         return redirect(url_for("view_event", event_id=event_id))
 
     bet = Bet(user_id=current_user.id, event_id=event_id, option_id=option_id)
     db.session.add(bet)
     db.session.commit()
 
-    flash("Прогноз прийнято!")
+    flash(t("events.bet_accepted"))
     return redirect(url_for("view_event", event_id=event_id))
 
 
@@ -817,7 +837,7 @@ def place_bet(event_id):
 @login_required
 def settle_event(event_id):
     if not current_user.is_admin:
-        flash("Тільки адмін може завершувати подію")
+        flash(t("events.only_admin_settle"))
         return redirect(url_for("dashboard"))
 
     event = Event.query.get_or_404(event_id)
@@ -841,7 +861,7 @@ def settle_event(event_id):
     event.status = "settled"
     db.session.commit()
 
-    flash("Подію завершено, призи розподілено")
+    flash(t("events.settled"))
     return redirect(url_for("dashboard"))
 
 

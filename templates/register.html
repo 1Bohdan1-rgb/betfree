@@ -1,26 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Реєстрація{% endblock %}
+{% block title %}{{ t('auth.register_title') }}{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('login') }}">← Назад</a>
+<a class="btn-back" href="{{ url_for('login') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 <div class="card">
-    <h2>Реєстрація</h2>
+    <h2>{{ t('auth.register_title') }}</h2>
     <form method="POST">
-        <label>Юзернейм</label>
+        <label>{{ t('auth.username') }}</label>
         <input type="text" name="username" required>
-        <label>Email</label>
+        <label>{{ t('auth.email') }}</label>
         <input type="email" name="email" required>
-        <label>Пароль</label>
+        <label>{{ t('auth.password') }}</label>
         <input type="password" name="password" required>
-        <label>Дата народження</label>
+        <label>{{ t('auth.date_of_birth') }}</label>
         <input type="date" name="date_of_birth" required>
         <div class="checkbox-row">
             <input type="checkbox" name="age_confirm" id="age_confirm" required>
-            <label for="age_confirm">Підтверджую, що мені виповнилось 18 років</label>
+            <label for="age_confirm">{{ t('auth.age_confirm') }}</label>
         </div>
-        <button class="btn" type="submit">Зареєструватись</button>
+        <button class="btn" type="submit">{{ t('auth.register_link') }}</button>
     </form>
-    <p>Вже є акаунт? <a href="{{ url_for('login') }}">Увійти</a></p>
+    <p>{{ t('auth.have_account') }} <a href="{{ url_for('login') }}">{{ t('auth.login_btn') }}</a></p>
 </div>
 {% endblock %}

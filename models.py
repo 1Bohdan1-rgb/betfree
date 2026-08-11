@@ -6,15 +6,16 @@ import string
 
 db = SQLAlchemy()
 
-# (value, icon, label) — value зберігається в Event.sport_type
+# (value, icon, label_key) — value зберігається в Event.sport_type;
+# label_key — ключ перекладу (translations.py), не готовий текст
 SPORT_CHOICES = [
-    ("football", "⚽", "Футбол"),
-    ("tennis", "🎾", "Теніс"),
-    ("f1", "🏎️", "Формула 1"),
-    ("basketball", "🏀", "Баскетбол"),
-    ("hockey", "🏒", "Хокей"),
-    ("boxing", "🥊", "Бокс/MMA"),
-    ("esports", "🎮", "Кіберспорт"),
+    ("football", "⚽", "sports.football"),
+    ("tennis", "🎾", "sports.tennis"),
+    ("f1", "🏎️", "sports.f1"),
+    ("basketball", "🏀", "sports.basketball"),
+    ("hockey", "🏒", "sports.hockey"),
+    ("boxing", "🥊", "sports.boxing"),
+    ("esports", "🎮", "sports.esports"),
 ]
 SPORT_ICONS = {value: icon for value, icon, label in SPORT_CHOICES}
 SPORT_LABELS = {value: label for value, icon, label in SPORT_CHOICES}
@@ -77,7 +78,8 @@ class Event(db.Model):
 
     @property
     def sport_label(self):
-        return SPORT_LABELS.get(self.sport_type, self.sport_type or "Інше")
+        """Повертає ключ перекладу (не готовий текст) — розгортається через t() у шаблоні."""
+        return SPORT_LABELS.get(self.sport_type, "sports.other")
 
     @property
     def sport_image(self):

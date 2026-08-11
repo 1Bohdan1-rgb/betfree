@@ -1,24 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Події{% endblock %}
+{% block title %}{{ t('events.dashboard_title') }}{% endblock %}
 {% block content %}
 
 {% if expiring_voucher %}
 <div class="voucher-banner">
     <span>
-        ⏰ У вас є ваучер {{ expiring_voucher.sponsor.sponsor_name }}
-        -{{ expiring_voucher.prize.voucher_percent if expiring_voucher.prize else '' }}%,
-        що спливає {{ expiring_voucher.expires_at.strftime('%d.%m.%Y %H:%M') }}!
+        {{ t('events.voucher_banner',
+             sponsor=expiring_voucher.sponsor.sponsor_name,
+             percent=(expiring_voucher.prize.voucher_percent if expiring_voucher.prize else ''),
+             date=expiring_voucher.expires_at.strftime('%d.%m.%Y %H:%M')) }}
     </span>
-    <a href="{{ url_for('my_vouchers') }}">Переглянути</a>
+    <a href="{{ url_for('my_vouchers') }}">{{ t('common.view') }}</a>
 </div>
 {% endif %}
 
 {% if current_user.is_admin %}
-<a class="btn" href="{{ url_for('create_event') }}" style="margin-bottom:20px;display:inline-block;">+ Створити подію</a>
+<a class="btn" href="{{ url_for('create_event') }}" style="margin-bottom:20px;display:inline-block;">{{ t('events.create_btn') }}</a>
 {% endif %}
 
 {% if not events %}
-<div class="card">Активних подій поки немає</div>
+<div class="card">{{ t('events.no_events') }}</div>
 {% endif %}
 
 {% for e in events %}
@@ -30,7 +31,7 @@
                 <div>
                     <h3 class="event-title">{{ e.title }}</h3>
                     <span class="event-meta">
-                        <span class="status {{ 'settled' if e.status != 'open' else '' }}">{{ e.status }}</span>
+                        <span class="status {{ 'settled' if e.status != 'open' else '' }}">{{ t('status.' ~ e.status) }}</span>
                         {{ e.match_date.strftime('%d.%m.%Y %H:%M') }}
                     </span>
                 </div>
@@ -42,10 +43,10 @@
             {% if e.sponsor.sponsor_logo_url %}
             <img src="{{ e.sponsor.sponsor_logo_url }}" alt="{{ e.sponsor.sponsor_name }}">
             {% endif %}
-            <span>Призовий фонд надає <strong>{{ e.sponsor.sponsor_name }}</strong></span>
+            <span>{{ t('events.sponsor_provides', sponsor=e.sponsor.sponsor_name) }}</span>
         </div>
         {% endif %}
-        <a class="btn btn-block" href="{{ url_for('view_event', event_id=e.id) }}">Переглянути</a>
+        <a class="btn btn-block" href="{{ url_for('view_event', event_id=e.id) }}">{{ t('common.view') }}</a>
     </div>
 </div>
 {% endfor %}

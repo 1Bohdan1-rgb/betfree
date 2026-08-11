@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="{{ current_lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -85,6 +85,12 @@
         /* іконки в шапці (рулетка, профіль, адмін, вихід) — уніфікований контурний стиль */
         .icon-link { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; min-width: 38px; min-height: 38px; box-sizing: border-box; font-size: 17px; text-decoration: none; color: var(--text-muted); border: 1.5px solid rgba(159, 176, 201, 0.35); border-radius: 50%; transition: border-color .15s, background .15s; }
         .icon-link:hover { border-color: var(--text-muted); background: rgba(159, 176, 201, 0.08); }
+
+        /* перемикач мов (EN / UA / DE) */
+        .lang-switch { display: inline-flex; align-items: center; gap: 2px; border: 1.5px solid rgba(159, 176, 201, 0.35); border-radius: 20px; padding: 3px; }
+        .lang-link { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 10px; border-radius: 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.3px; text-decoration: none; color: var(--text-muted); transition: background .15s, color .15s; }
+        .lang-link:hover { color: var(--text); }
+        .lang-link.active { background: linear-gradient(135deg, #f0d878, var(--gold-dark)); color: #1a1206; }
 
         /* навігація "назад" */
         .btn-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--text-muted); font-size: 14px; font-weight: 600; text-decoration: none; margin-bottom: 10px; }
@@ -186,17 +192,22 @@
     <header>
         <div class="header-top">
             <a href="{{ url_for('dashboard') }}" class="brand">🎯 BetFree</a>
-            {% if current_user.is_authenticated %}
-                <div class="header-right">
-                    <span class="balance"><span class="wallet-icon">💰</span>{{ "%.2f"|format(current_user.balance) }}</span>
-                    <a href="{{ url_for('roulette') }}" class="icon-link" title="Рулетка">🎰</a>
-                    <a href="{{ url_for('profile') }}" class="icon-link" title="Профіль">👤</a>
-                    {% if current_user.is_admin %}
-                    <a href="{{ url_for('admin_users') }}" class="icon-link" title="Адмін-панель користувачів">🛠️</a>
-                    {% endif %}
-                    <a href="{{ url_for('logout') }}" class="icon-link" title="Вийти" aria-label="Вийти">🚪</a>
+            <div class="header-right">
+                <div class="lang-switch">
+                    {% for code, label in LANGUAGES.items() %}
+                    <a href="{{ url_for('set_language', lang_code=code) }}" class="lang-link {{ 'active' if code == current_lang else '' }}">{{ label }}</a>
+                    {% endfor %}
                 </div>
-            {% endif %}
+                {% if current_user.is_authenticated %}
+                    <span class="balance"><span class="wallet-icon">💰</span>{{ "%.2f"|format(current_user.balance) }}</span>
+                    <a href="{{ url_for('roulette') }}" class="icon-link" title="{{ t('nav.roulette') }}">🎰</a>
+                    <a href="{{ url_for('profile') }}" class="icon-link" title="{{ t('nav.profile') }}">👤</a>
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin_users') }}" class="icon-link" title="{{ t('nav.admin_panel') }}">🛠️</a>
+                    {% endif %}
+                    <a href="{{ url_for('logout') }}" class="icon-link" title="{{ t('nav.logout') }}" aria-label="{{ t('nav.logout') }}">🚪</a>
+                {% endif %}
+            </div>
         </div>
     </header>
 

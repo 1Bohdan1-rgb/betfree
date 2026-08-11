@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ event.title }}{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('dashboard') }}">← Назад</a>
+<a class="btn-back" href="{{ url_for('dashboard') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 
@@ -13,8 +13,8 @@
                 <div>
                     <h2 class="event-title">{{ event.title }}</h2>
                     <span class="event-meta">
-                        <span class="status {{ 'settled' if event.status != 'open' else '' }}">{{ event.status }}</span>
-                        {{ event.sport_label }} &middot; {{ event.match_date.strftime('%d.%m.%Y %H:%M') }}
+                        <span class="status {{ 'settled' if event.status != 'open' else '' }}">{{ t('status.' ~ event.status) }}</span>
+                        {{ t(event.sport_label) }} &middot; {{ event.match_date.strftime('%d.%m.%Y %H:%M') }}
                     </span>
                 </div>
             </div>
@@ -26,11 +26,11 @@
             {% if event.sponsor.sponsor_logo_url %}
             <img src="{{ event.sponsor.sponsor_logo_url }}" alt="{{ event.sponsor.sponsor_name }}">
             {% endif %}
-            <span>Призовий фонд надає <strong>{{ event.sponsor.sponsor_name }}</strong></span>
+            <span>{{ t('events.sponsor_provides', sponsor=event.sponsor.sponsor_name) }}</span>
         </div>
         {% endif %}
         {% if current_user.is_admin %}
-        <a class="btn-back" href="{{ url_for('edit_event', event_id=event.id) }}" style="margin:0;">✏️ Редагувати подію</a>
+        <a class="btn-back" href="{{ url_for('edit_event', event_id=event.id) }}" style="margin:0;">{{ t('events.edit_edit_btn') }}</a>
         {% endif %}
     </div>
 </div>
@@ -38,21 +38,21 @@
 {% if event.status == "open" %}
     {% if user_bet %}
     <div class="card">
-        Ви обрали: <strong>{{ user_bet.option.option_text }}</strong>
+        {{ t('events.your_pick') }} <strong>{{ user_bet.option.option_text }}</strong>
     </div>
     {% else %}
     <div class="card">
-        <h3>Зробити прогноз</h3>
+        <h3>{{ t('events.make_prediction_title') }}</h3>
         <form method="POST" action="{{ url_for('place_bet', event_id=event.id) }}">
-            <label>Хто переможе?</label>
+            <label>{{ t('events.who_wins_label') }}</label>
             <div class="option-picker">
                 {% for opt in event.options %}
                 <input type="radio" name="option_id" id="opt-{{ opt.id }}" value="{{ opt.id }}" required class="option-radio">
                 <label for="opt-{{ opt.id }}" class="option-card">{{ opt.option_text }}</label>
                 {% endfor %}
             </div>
-            <p class="event-meta">Якщо вгадаєте — приз ділиться порівну між усіма, хто вгадав</p>
-            <button class="btn" type="submit">Обрати</button>
+            <p class="event-meta">{{ t('events.pool_hint') }}</p>
+            <button class="btn" type="submit">{{ t('events.choose_btn') }}</button>
         </form>
     </div>
     {% endif %}
@@ -60,24 +60,24 @@
 
 {% if current_user.is_admin and event.status == "open" %}
 <div class="card">
-    <h3>Завершити подію (адмін)</h3>
+    <h3>{{ t('events.settle_title') }}</h3>
     <form method="POST" action="{{ url_for('settle_event', event_id=event.id) }}">
-        <label>Переможний варіант</label>
+        <label>{{ t('events.winning_option_label') }}</label>
         <select name="winning_option_id" required>
             {% for opt in event.options %}
             <option value="{{ opt.id }}">{{ opt.option_text }}</option>
             {% endfor %}
         </select>
-        <button class="btn" type="submit">Завершити і розподілити приз</button>
+        <button class="btn" type="submit">{{ t('events.settle_btn') }}</button>
     </form>
 </div>
 {% endif %}
 
 {% if event.status == "settled" %}
 <div class="card">
-    <h3>Результат</h3>
+    <h3>{{ t('events.result_title') }}</h3>
     {% for opt in event.options %}
-        <p>{{ opt.option_text }} {% if opt.is_winner %}✅ Переможець{% endif %}</p>
+        <p>{{ opt.option_text }} {% if opt.is_winner %}{{ t('events.winner_badge') }}{% endif %}</p>
     {% endfor %}
 </div>
 {% endif %}

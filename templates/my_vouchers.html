@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Мої ваучери{% endblock %}
+{% block title %}{{ t('vouchers.title') }}{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('profile') }}">← Назад</a>
+<a class="btn-back" href="{{ url_for('profile') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 
-<h2>Мої ваучери</h2>
+<h2>{{ t('vouchers.title') }}</h2>
 
 {% if not vouchers %}
-<div class="card">У вас поки немає виграних ваучерів</div>
+<div class="card">{{ t('vouchers.empty') }}</div>
 {% endif %}
 
 {% for v in vouchers %}
@@ -18,22 +18,22 @@
             {{ v.sponsor.sponsor_name }} — {{ (v.prize.custom_label if v.prize else none) or ("-" ~ (v.prize.voucher_percent if v.prize else '?') ~ "%") }}
         </strong>
         {% if v.badge_status == 'used' %}
-        <span class="voucher-status-badge status-used">Використано</span>
+        <span class="voucher-status-badge status-used">{{ t('vouchers.status_used') }}</span>
         {% elif v.badge_status == 'expired' %}
-        <span class="voucher-status-badge status-expired">Прострочено</span>
+        <span class="voucher-status-badge status-expired">{{ t('vouchers.status_expired') }}</span>
         {% elif v.badge_status == 'expiring' %}
-        <span class="voucher-status-badge status-expiring">Спливає скоро</span>
+        <span class="voucher-status-badge status-expiring">{{ t('vouchers.status_expiring') }}</span>
         {% else %}
-        <span class="voucher-status-badge status-active">Активний</span>
+        <span class="voucher-status-badge status-active">{{ t('common.active') }}</span>
         {% endif %}
     </div>
-    <p class="event-meta">Отримано: {{ v.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+    <p class="event-meta">{{ t('vouchers.received_label') }} {{ v.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
     <p class="promo-code" style="margin: 8px 0;">{{ v.unique_code }}</p>
     <p class="event-meta">
         {% if v.is_used %}
-        Використано: {{ v.used_at.strftime('%d.%m.%Y %H:%M') if v.used_at else '—' }}
+        {{ t('vouchers.used_label') }} {{ v.used_at.strftime('%d.%m.%Y %H:%M') if v.used_at else '—' }}
         {% else %}
-        Дійсний до: {{ v.expires_at.strftime('%d.%m.%Y %H:%M') }}
+        {{ t('vouchers.valid_until_label') }} {{ v.expires_at.strftime('%d.%m.%Y %H:%M') }}
         {% endif %}
     </p>
 </div>

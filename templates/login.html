@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Вхід{% endblock %}
+{% block title %}{{ t('auth.login_title') }}{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('register') }}">← Назад</a>
+<a class="btn-back" href="{{ url_for('register') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 <div class="card">
-    <h2>Вхід</h2>
+    <h2>{{ t('auth.login_title') }}</h2>
     <form method="POST">
-        <label>Юзернейм</label>
+        <label>{{ t('auth.username') }}</label>
         <input type="text" name="username" value="{{ remembered_username }}" required>
-        <label>Пароль</label>
+        <label>{{ t('auth.password') }}</label>
         <input type="password" name="password" required>
         <div class="checkbox-row">
             <input type="checkbox" name="remember_me" id="remember_me" {% if remembered_username %}checked{% endif %}>
-            <label for="remember_me">Запам'ятати мене</label>
+            <label for="remember_me">{{ t('auth.remember_me') }}</label>
         </div>
-        <button class="btn" type="submit">Увійти</button>
+        <button class="btn" type="submit">{{ t('auth.login_btn') }}</button>
     </form>
-    <p>Немає акаунту? <a href="{{ url_for('register') }}">Зареєструватись</a></p>
-    <p style="font-size:12px;color:#888">Тестовий адмін: admin / admin123</p>
+    <p>{{ t('auth.no_account') }} <a href="{{ url_for('register') }}">{{ t('auth.register_link') }}</a></p>
+    <p style="font-size:12px;color:#888">{{ t('auth.test_admin_hint') }}</p>
 </div>
 {% endblock %}
