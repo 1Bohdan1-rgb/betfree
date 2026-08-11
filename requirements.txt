@@ -5,3 +5,4 @@ Werkzeug==3.0.3
 gunicorn==22.0.0
 pywebpush==2.4.0
 APScheduler==3.11.3
+psycopg2-binary==2.9.9
