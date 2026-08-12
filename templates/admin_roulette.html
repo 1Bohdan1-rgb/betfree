@@ -79,6 +79,11 @@
         <button class="btn btn-block" type="submit">{{ t('admin.deactivate_btn') if s.is_active else t('admin.activate_btn') }}</button>
     </form>
 
+    <form method="POST" action="{{ url_for('delete_sponsor', sponsor_id=s.id) }}" style="margin-top:8px;"
+          onsubmit='return confirm({{ t("admin.confirm_delete_sponsor", name=s.sponsor_name)|tojson }})'>
+        <button class="btn btn-block" type="submit">{{ t('admin.delete_sponsor_btn') }}</button>
+    </form>
+
     <h3 style="margin-top:20px;">{{ t('admin.wheel_prizes_title') }}</h3>
 
     {% if not s.prizes %}

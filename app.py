@@ -633,6 +633,31 @@ def toggle_sponsor(sponsor_id):
     return redirect(url_for("admin_roulette"))
 
 
+@app.route("/admin/roulette/<int:sponsor_id>/delete", methods=["POST"])
+@login_required
+def delete_sponsor(sponsor_id):
+    if not current_user.is_admin:
+        flash(t("admin.only_admin_action"))
+        return redirect(url_for("dashboard"))
+
+    sponsor = SponsorSpin.query.get_or_404(sponsor_id)
+
+    # ваучери зберігають історію видач — не дозволяємо знищити її разом зі спонсором;
+    # пропонуємо натомість деактивувати (soft, через toggle_sponsor)
+    if VoucherRedemption.query.filter_by(sponsor_spin_id=sponsor.id).first():
+        flash(t("admin.sponsor_delete_blocked", name=sponsor.sponsor_name))
+        return redirect(url_for("admin_roulette"))
+
+    # події лишаються, просто втрачають бренд спонсора (sponsor_spin_id nullable)
+    Event.query.filter_by(sponsor_spin_id=sponsor.id).update({"sponsor_spin_id": None})
+
+    sponsor_name = sponsor.sponsor_name
+    db.session.delete(sponsor)  # каскадно видалить його SpinPrize (cascade="all, delete-orphan")
+    db.session.commit()
+    flash(t("admin.sponsor_deleted", name=sponsor_name))
+    return redirect(url_for("admin_roulette"))
+
+
 @app.route("/admin/roulette/<int:sponsor_id>/prizes", methods=["POST"])
 @login_required
 def add_prize(sponsor_id):
