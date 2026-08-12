@@ -6,6 +6,7 @@
 {% block content %}
 
 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+    <a class="btn" href="{{ url_for('admin_sponsors') }}" style="display:inline-flex;">{{ t('admin.sponsors_btn') }}</a>
     <a class="btn" href="{{ url_for('admin_roulette') }}" style="display:inline-flex;">{{ t('admin.roulette_mgmt_btn') }}</a>
     <a class="btn" href="{{ url_for('admin_verify_voucher') }}" style="display:inline-flex;">{{ t('admin.verify_voucher_btn') }}</a>
 </div>

@@ -551,11 +551,11 @@ def roulette():
     )
 
 
-# ---------- АДМІН: РУЛЕТКА / СПОНСОРИ ----------
+# ---------- АДМІН: СПОНСОРИ (CRUD) ----------
 
-@app.route("/admin/roulette", methods=["GET", "POST"])
+@app.route("/admin/sponsors", methods=["GET", "POST"])
 @login_required
-def admin_roulette():
+def admin_sponsors():
     if not current_user.is_admin:
         flash(t("admin.only_admin_view"))
         return redirect(url_for("dashboard"))
@@ -571,7 +571,7 @@ def admin_roulette():
 
         if min_reward > max_reward:
             flash(t("admin.min_max_error"))
-            return redirect(url_for("admin_roulette"))
+            return redirect(url_for("admin_sponsors"))
 
         sponsor = SponsorSpin(
             sponsor_name=sponsor_name,
@@ -585,13 +585,13 @@ def admin_roulette():
         db.session.add(sponsor)
         db.session.commit()
         flash(t("admin.sponsor_added"))
-        return redirect(url_for("admin_roulette"))
+        return redirect(url_for("admin_sponsors"))
 
     sponsors = SponsorSpin.query.order_by(SponsorSpin.created_at.desc()).all()
-    return render_template("admin_roulette.html", sponsors=sponsors)
+    return render_template("admin_sponsors.html", sponsors=sponsors)
 
 
-@app.route("/admin/roulette/<int:sponsor_id>/edit", methods=["POST"])
+@app.route("/admin/sponsors/<int:sponsor_id>/edit", methods=["POST"])
 @login_required
 def edit_sponsor(sponsor_id):
     if not current_user.is_admin:
@@ -604,7 +604,7 @@ def edit_sponsor(sponsor_id):
 
     if min_reward > max_reward:
         flash(t("admin.min_max_error"))
-        return redirect(url_for("admin_roulette"))
+        return redirect(url_for("admin_sponsors"))
 
     sponsor.sponsor_name = request.form["sponsor_name"].strip()
     sponsor.sponsor_logo_url = request.form.get("sponsor_logo_url", "").strip() or None
@@ -615,10 +615,10 @@ def edit_sponsor(sponsor_id):
     sponsor.voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
     db.session.commit()
     flash(t("admin.sponsor_updated", name=sponsor.sponsor_name))
-    return redirect(url_for("admin_roulette"))
+    return redirect(url_for("admin_sponsors"))
 
 
-@app.route("/admin/roulette/<int:sponsor_id>/toggle", methods=["POST"])
+@app.route("/admin/sponsors/<int:sponsor_id>/toggle", methods=["POST"])
 @login_required
 def toggle_sponsor(sponsor_id):
     if not current_user.is_admin:
@@ -630,10 +630,10 @@ def toggle_sponsor(sponsor_id):
     db.session.commit()
     status_word = t("common.activated") if sponsor.is_active else t("common.deactivated")
     flash(t("admin.sponsor_toggled", name=sponsor.sponsor_name, status=status_word))
-    return redirect(url_for("admin_roulette"))
+    return redirect(url_for("admin_sponsors"))
 
 
-@app.route("/admin/roulette/<int:sponsor_id>/delete", methods=["POST"])
+@app.route("/admin/sponsors/<int:sponsor_id>/delete", methods=["POST"])
 @login_required
 def delete_sponsor(sponsor_id):
     if not current_user.is_admin:
@@ -646,7 +646,7 @@ def delete_sponsor(sponsor_id):
     # пропонуємо натомість деактивувати (soft, через toggle_sponsor)
     if VoucherRedemption.query.filter_by(sponsor_spin_id=sponsor.id).first():
         flash(t("admin.sponsor_delete_blocked", name=sponsor.sponsor_name))
-        return redirect(url_for("admin_roulette"))
+        return redirect(url_for("admin_sponsors"))
 
     # події лишаються, просто втрачають бренд спонсора (sponsor_spin_id nullable)
     Event.query.filter_by(sponsor_spin_id=sponsor.id).update({"sponsor_spin_id": None})
@@ -655,7 +655,20 @@ def delete_sponsor(sponsor_id):
     db.session.delete(sponsor)  # каскадно видалить його SpinPrize (cascade="all, delete-orphan")
     db.session.commit()
     flash(t("admin.sponsor_deleted", name=sponsor_name))
-    return redirect(url_for("admin_roulette"))
+    return redirect(url_for("admin_sponsors"))
+
+
+# ---------- АДМІН: РУЛЕТКА (призи колеса за спонсором) ----------
+
+@app.route("/admin/roulette")
+@login_required
+def admin_roulette():
+    if not current_user.is_admin:
+        flash(t("admin.only_admin_view"))
+        return redirect(url_for("dashboard"))
+
+    sponsors = SponsorSpin.query.order_by(SponsorSpin.created_at.desc()).all()
+    return render_template("admin_roulette.html", sponsors=sponsors)
 
 
 @app.route("/admin/roulette/<int:sponsor_id>/prizes", methods=["POST"])

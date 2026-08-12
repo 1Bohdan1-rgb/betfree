@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ t('admin.sponsors_title') }}{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('admin_users') }}">← {{ t('common.back') }}</a>
+{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>{{ t('admin.new_sponsor_title') }}</h2>
+    <form method="POST" action="{{ url_for('admin_sponsors') }}">
+        <label>{{ t('admin.sponsor_name_label') }}</label>
+        <input type="text" name="sponsor_name" required>
+
+        <label>{{ t('admin.logo_url_label') }}</label>
+        <input type="url" name="sponsor_logo_url" placeholder="https://...">
+
+        <label>{{ t('admin.min_reward_label') }}</label>
+        <input type="number" step="0.01" name="min_reward" value="5" required>
+
+        <label>{{ t('admin.max_reward_label') }}</label>
+        <input type="number" step="0.01" name="max_reward" value="30" required>
+
+        <label>{{ t('admin.promo_code_label') }}</label>
+        <input type="text" name="promo_code" placeholder="{{ t('admin.promo_code_placeholder') }}">
+
+        <label>{{ t('admin.promo_desc_label') }}</label>
+        <input type="text" name="promo_description" placeholder="{{ t('admin.promo_desc_placeholder') }}">
+
+        <label>{{ t('admin.voucher_validity_label') }}</label>
+        <input type="number" step="1" name="voucher_validity_days" value="7" required>
+
+        <button class="btn" type="submit">{{ t('admin.add_sponsor_btn') }}</button>
+    </form>
+</div>
+
+<h2>{{ t('admin.sponsors_title') }}</h2>
+
+{% if not sponsors %}
+<div class="card">{{ t('admin.no_sponsors') }}</div>
+{% endif %}
+
+{% for s in sponsors %}
+<div class="card" id="sponsor-{{ s.id }}">
+    <div class="admin-user-header">
+        <strong style="color:#f5f5f5;">{{ s.sponsor_name }}</strong>
+        {% if s.is_active %}
+        <span class="verify-badge verified">🟢 {{ t('common.active') }}</span>
+        {% else %}
+        <span class="verify-badge unverified">⚪ {{ t('common.inactive') }}</span>
+        {% endif %}
+    </div>
+
+    <form method="POST" action="{{ url_for('edit_sponsor', sponsor_id=s.id) }}">
+        <label>{{ t('admin.sponsor_name_label') }}</label>
+        <input type="text" name="sponsor_name" value="{{ s.sponsor_name }}" required>
+
+        <label>{{ t('admin.logo_url_label') }}</label>
+        <input type="url" name="sponsor_logo_url" value="{{ s.sponsor_logo_url or '' }}" placeholder="https://...">
+
+        <label>{{ t('admin.min_reward_label') }}</label>
+        <input type="number" step="0.01" name="min_reward" value="{{ s.min_reward }}" required>
+
+        <label>{{ t('admin.max_reward_label') }}</label>
+        <input type="number" step="0.01" name="max_reward" value="{{ s.max_reward }}" required>
+
+        <label>{{ t('admin.promo_code_label') }}</label>
+        <input type="text" name="promo_code" value="{{ s.promo_code or '' }}" placeholder="{{ t('admin.promo_code_placeholder') }}">
+
+        <label>{{ t('admin.promo_desc_label') }}</label>
+        <input type="text" name="promo_description" value="{{ s.promo_description or '' }}" placeholder="{{ t('admin.promo_desc_placeholder') }}">
+
+        <label>{{ t('admin.voucher_validity_label') }}</label>
+        <input type="number" step="1" name="voucher_validity_days" value="{{ s.voucher_validity_days }}" required>
+
+        <button class="btn btn-block" type="submit">{{ t('common.save_changes') }}</button>
+    </form>
+
+    <form method="POST" action="{{ url_for('toggle_sponsor', sponsor_id=s.id) }}" style="margin-top:8px;">
+        <button class="btn btn-block" type="submit">{{ t('admin.deactivate_btn') if s.is_active else t('admin.activate_btn') }}</button>
+    </form>
+
+    <form method="POST" action="{{ url_for('delete_sponsor', sponsor_id=s.id) }}" style="margin-top:8px;"
+          onsubmit='return confirm({{ t("admin.confirm_delete_sponsor", name=s.sponsor_name)|tojson }})'>
+        <button class="btn btn-block" type="submit">{{ t('admin.delete_sponsor_btn') }}</button>
+    </form>
+
+    <a class="btn-back" href="{{ url_for('admin_roulette') }}" style="margin:14px 0 0;">🎰 {{ t('admin.manage_prizes_link') }}</a>
+</div>
+{% endfor %}
+
+{% endblock %}

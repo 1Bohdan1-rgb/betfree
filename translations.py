@@ -89,6 +89,7 @@ TRANSLATIONS = {
 
         # ---------- адмін: користувачі / ваучери ----------
         "admin.users_title": "Користувачі",
+        "admin.sponsors_btn": "👥 Спонсори",
         "admin.roulette_mgmt_btn": "🎰 Керування рулеткою",
         "admin.verify_voucher_btn": "🎟️ Перевірка ваучера",
         "admin.cancel_verification": "Скасувати верифікацію",
@@ -128,6 +129,9 @@ TRANSLATIONS = {
         "admin.confirm_delete_sponsor": "Видалити спонсора {name}? Цю дію не можна скасувати.",
         "admin.sponsor_deleted": "Спонсора {name} видалено",
         "admin.sponsor_delete_blocked": "Неможливо видалити спонсора {name} — на нього вже видані ваучери. Натомість деактивуйте його.",
+        "admin.manage_sponsors_link": "Керувати спонсорами",
+        "admin.edit_sponsor_link": "Редагувати спонсора",
+        "admin.manage_prizes_link": "Керувати призами колеса",
         "admin.wheel_prizes_title": "Призи на колесі",
         "admin.no_prizes": "Призів ще немає — колесо покаже монети за замовчуванням (діапазон вище)",
         "admin.weight_label_inline": "(вага {weight})",
@@ -297,6 +301,7 @@ TRANSLATIONS = {
         "vouchers.valid_until_label": "Valid until:",
 
         "admin.users_title": "Users",
+        "admin.sponsors_btn": "👥 Sponsors",
         "admin.roulette_mgmt_btn": "🎰 Manage roulette",
         "admin.verify_voucher_btn": "🎟️ Verify voucher",
         "admin.cancel_verification": "Revoke verification",
@@ -335,6 +340,9 @@ TRANSLATIONS = {
         "admin.confirm_delete_sponsor": "Delete sponsor {name}? This action cannot be undone.",
         "admin.sponsor_deleted": "Sponsor {name} deleted",
         "admin.sponsor_delete_blocked": "Cannot delete sponsor {name} — vouchers have already been issued for it. Deactivate it instead.",
+        "admin.manage_sponsors_link": "Manage sponsors",
+        "admin.edit_sponsor_link": "Edit sponsor",
+        "admin.manage_prizes_link": "Manage wheel prizes",
         "admin.wheel_prizes_title": "Wheel prizes",
         "admin.no_prizes": "No prizes yet — the wheel will show default coin amounts (range above)",
         "admin.weight_label_inline": "(weight {weight})",
@@ -499,6 +507,7 @@ TRANSLATIONS = {
         "vouchers.valid_until_label": "Gültig bis:",
 
         "admin.users_title": "Benutzer",
+        "admin.sponsors_btn": "👥 Sponsoren",
         "admin.roulette_mgmt_btn": "🎰 Roulette verwalten",
         "admin.verify_voucher_btn": "🎟️ Gutschein prüfen",
         "admin.cancel_verification": "Verifizierung widerrufen",
@@ -537,6 +546,9 @@ TRANSLATIONS = {
         "admin.confirm_delete_sponsor": "Sponsor {name} löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
         "admin.sponsor_deleted": "Sponsor {name} gelöscht",
         "admin.sponsor_delete_blocked": "Sponsor {name} kann nicht gelöscht werden — es wurden bereits Gutscheine dafür ausgegeben. Deaktivieren Sie ihn stattdessen.",
+        "admin.manage_sponsors_link": "Sponsoren verwalten",
+        "admin.edit_sponsor_link": "Sponsor bearbeiten",
+        "admin.manage_prizes_link": "Radpreise verwalten",
         "admin.wheel_prizes_title": "Radpreise",
         "admin.no_prizes": "Noch keine Preise — das Rad zeigt die Standard-Münzbeträge (Bereich oben)",
         "admin.weight_label_inline": "(Gewichtung {weight})",
