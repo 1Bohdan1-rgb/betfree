@@ -23,7 +23,7 @@
         {% endif %}
     </div>
 
-    <a class="btn-back" href="{{ url_for('admin_sponsors') }}#sponsor-{{ s.id }}" style="margin:0 0 14px;">✏️ {{ t('admin.edit_sponsor_link') }}</a>
+    <a class="btn-back" href="{{ url_for('sponsor_detail', sponsor_id=s.id) }}" style="margin:0 0 14px;">✏️ {{ t('admin.edit_sponsor_link') }}</a>
 
     <h3 style="margin-top:4px;">{{ t('admin.wheel_prizes_title') }}</h3>
 

@@ -559,42 +559,79 @@ def _optional_form_fields(*names):
     return {name: request.form.get(name, "").strip() or None for name in names}
 
 
-@app.route("/admin/sponsors", methods=["GET", "POST"])
+SPONSOR_OPTIONAL_FIELDS = (
+    "sponsor_logo_url", "website_url", "brand_color_primary", "brand_color_secondary",
+    "slogan", "promo_code", "promo_description",
+    "contact_address", "contact_email", "contact_phone", "contact_person_name",
+)
+
+
+@app.route("/admin/sponsors")
 @login_required
 def admin_sponsors():
     if not current_user.is_admin:
         flash(t("admin.only_admin_view"))
         return redirect(url_for("dashboard"))
 
-    if request.method == "POST":
-        sponsor_name = request.form["sponsor_name"].strip()
-        min_reward = float(request.form["min_reward"])
-        max_reward = float(request.form["max_reward"])
-        voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
-        extra = _optional_form_fields(
-            "sponsor_logo_url", "website_url", "brand_color_primary", "brand_color_secondary",
-            "slogan", "promo_code", "promo_description",
-            "contact_address", "contact_email", "contact_phone", "contact_person_name",
-        )
-
-        if min_reward > max_reward:
-            flash(t("admin.min_max_error"))
-            return redirect(url_for("admin_sponsors"))
-
-        sponsor = SponsorSpin(
-            sponsor_name=sponsor_name,
-            min_reward=min_reward,
-            max_reward=max_reward,
-            voucher_validity_days=voucher_validity_days,
-            **extra,
-        )
-        db.session.add(sponsor)
-        db.session.commit()
-        flash(t("admin.sponsor_added"))
-        return redirect(url_for("admin_sponsors"))
-
     sponsors = SponsorSpin.query.order_by(SponsorSpin.created_at.desc()).all()
-    return render_template("admin_sponsors.html", sponsors=sponsors)
+    event_counts = dict(
+        db.session.query(Event.sponsor_spin_id, db.func.count(Event.id))
+        .filter(Event.sponsor_spin_id.isnot(None))
+        .group_by(Event.sponsor_spin_id)
+        .all()
+    )
+    return render_template("admin_sponsors.html", sponsors=sponsors, event_counts=event_counts)
+
+
+@app.route("/admin/sponsors/new")
+@login_required
+def new_sponsor():
+    if not current_user.is_admin:
+        flash(t("admin.only_admin_view"))
+        return redirect(url_for("dashboard"))
+    return render_template("admin_sponsor_detail.html", sponsor=None, event_count=0)
+
+
+@app.route("/admin/sponsors/<int:sponsor_id>")
+@login_required
+def sponsor_detail(sponsor_id):
+    if not current_user.is_admin:
+        flash(t("admin.only_admin_view"))
+        return redirect(url_for("dashboard"))
+
+    sponsor = SponsorSpin.query.get_or_404(sponsor_id)
+    event_count = Event.query.filter_by(sponsor_spin_id=sponsor.id).count()
+    return render_template("admin_sponsor_detail.html", sponsor=sponsor, event_count=event_count)
+
+
+@app.route("/admin/sponsors", methods=["POST"])
+@login_required
+def create_sponsor():
+    if not current_user.is_admin:
+        flash(t("admin.only_admin_action"))
+        return redirect(url_for("dashboard"))
+
+    sponsor_name = request.form["sponsor_name"].strip()
+    min_reward = float(request.form["min_reward"])
+    max_reward = float(request.form["max_reward"])
+    voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
+    extra = _optional_form_fields(*SPONSOR_OPTIONAL_FIELDS)
+
+    if min_reward > max_reward:
+        flash(t("admin.min_max_error"))
+        return redirect(url_for("new_sponsor"))
+
+    sponsor = SponsorSpin(
+        sponsor_name=sponsor_name,
+        min_reward=min_reward,
+        max_reward=max_reward,
+        voucher_validity_days=voucher_validity_days,
+        **extra,
+    )
+    db.session.add(sponsor)
+    db.session.commit()
+    flash(t("admin.sponsor_added"))
+    return redirect(url_for("sponsor_detail", sponsor_id=sponsor.id))
 
 
 @app.route("/admin/sponsors/<int:sponsor_id>/edit", methods=["POST"])
@@ -610,21 +647,17 @@ def edit_sponsor(sponsor_id):
 
     if min_reward > max_reward:
         flash(t("admin.min_max_error"))
-        return redirect(url_for("admin_sponsors"))
+        return redirect(url_for("sponsor_detail", sponsor_id=sponsor_id))
 
     sponsor.sponsor_name = request.form["sponsor_name"].strip()
     sponsor.min_reward = min_reward
     sponsor.max_reward = max_reward
     sponsor.voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
-    for field, value in _optional_form_fields(
-        "sponsor_logo_url", "website_url", "brand_color_primary", "brand_color_secondary",
-        "slogan", "promo_code", "promo_description",
-        "contact_address", "contact_email", "contact_phone", "contact_person_name",
-    ).items():
+    for field, value in _optional_form_fields(*SPONSOR_OPTIONAL_FIELDS).items():
         setattr(sponsor, field, value)
     db.session.commit()
     flash(t("admin.sponsor_updated", name=sponsor.sponsor_name))
-    return redirect(url_for("admin_sponsors"))
+    return redirect(url_for("sponsor_detail", sponsor_id=sponsor_id))
 
 
 @app.route("/admin/sponsors/<int:sponsor_id>/toggle", methods=["POST"])
@@ -639,7 +672,7 @@ def toggle_sponsor(sponsor_id):
     db.session.commit()
     status_word = t("common.activated") if sponsor.is_active else t("common.deactivated")
     flash(t("admin.sponsor_toggled", name=sponsor.sponsor_name, status=status_word))
-    return redirect(url_for("admin_sponsors"))
+    return redirect(url_for("sponsor_detail", sponsor_id=sponsor_id))
 
 
 @app.route("/admin/sponsors/<int:sponsor_id>/delete", methods=["POST"])
@@ -655,7 +688,7 @@ def delete_sponsor(sponsor_id):
     # пропонуємо натомість деактивувати (soft, через toggle_sponsor)
     if VoucherRedemption.query.filter_by(sponsor_spin_id=sponsor.id).first():
         flash(t("admin.sponsor_delete_blocked", name=sponsor.sponsor_name))
-        return redirect(url_for("admin_sponsors"))
+        return redirect(url_for("sponsor_detail", sponsor_id=sponsor_id))
 
     # події лишаються, просто втрачають бренд спонсора (sponsor_spin_id nullable)
     Event.query.filter_by(sponsor_spin_id=sponsor.id).update({"sponsor_spin_id": None})
