@@ -34,12 +34,15 @@
         header { margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid rgba(212, 175, 55, 0.16); box-shadow: 0 8px 16px -12px rgba(0, 0, 0, 0.6); }
         header a { text-decoration: none; color: var(--gold); font-weight: 700; }
 
-        /* єдиний рядок header: лого зліва, баланс+іконки+вихід справа */
-        .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; row-gap: 12px; column-gap: 20px; }
+        /* рядок 1: лого зліва, баланс (головний акцент, клікабельний → профіль) справа */
+        .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; row-gap: 10px; column-gap: 20px; }
         .brand { font-size: 21px; }
-        .header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-        .balance { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #f0d878, var(--gold-dark)); color: #1a1206; padding: 8px 16px; border-radius: 24px; font-size: 18px; font-weight: 700; }
+        .balance { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #f0d878, var(--gold-dark)); color: #1a1206; padding: 8px 16px; border-radius: 24px; font-size: 18px; font-weight: 700; text-decoration: none; transition: filter .15s; }
+        .balance:hover { filter: brightness(1.08); }
         .balance .wallet-icon { font-size: 18px; }
+
+        /* рядок 2: приглушений службовий ряд — мова, рулетка, аватар, адмін, вихід */
+        .header-utility { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 8px; margin-top: 12px; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.45); overflow: hidden; }
         h2, h3 { color: var(--gold); }
         p { color: var(--text-muted); }
@@ -86,11 +89,11 @@
         .icon-link { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; min-width: 38px; min-height: 38px; box-sizing: border-box; font-size: 17px; text-decoration: none; color: var(--text-muted); border: 1.5px solid rgba(159, 176, 201, 0.35); border-radius: 50%; transition: border-color .15s, background .15s; }
         .icon-link:hover { border-color: var(--text-muted); background: rgba(159, 176, 201, 0.08); }
 
-        /* перемикач мов (EN / UA / DE) */
-        .lang-switch { display: inline-flex; align-items: center; gap: 2px; border: 1.5px solid rgba(159, 176, 201, 0.35); border-radius: 20px; padding: 3px; }
-        .lang-link { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 10px; border-radius: 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.3px; text-decoration: none; color: var(--text-muted); transition: background .15s, color .15s; }
-        .lang-link:hover { color: var(--text); }
-        .lang-link.active { background: linear-gradient(135deg, #f0d878, var(--gold-dark)); color: #1a1206; }
+        /* перемикач мов — компактний нативний select у службовому ряду */
+        .lang-select { width: auto; min-height: 34px; margin: 0; padding: 4px 10px; border-radius: 20px; border: 1.5px solid rgba(159, 176, 201, 0.35); background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0.3px; cursor: pointer; }
+        .lang-select:hover { border-color: var(--text-muted); }
+        .lang-select:focus { outline: none; border-color: var(--gold); }
+        .lang-select option { background: var(--card-bg); color: var(--text); }
 
         /* навігація "назад" */
         .btn-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--text-muted); font-size: 14px; font-weight: 600; text-decoration: none; margin-bottom: 10px; }
@@ -192,22 +195,26 @@
     <header>
         <div class="header-top">
             <a href="{{ url_for('dashboard') }}" class="brand">🎯 BetFree</a>
-            <div class="header-right">
-                <div class="lang-switch">
-                    {% for code, label in LANGUAGES.items() %}
-                    <a href="{{ url_for('set_language', lang_code=code) }}" class="lang-link {{ 'active' if code == current_lang else '' }}">{{ label }}</a>
-                    {% endfor %}
-                </div>
-                {% if current_user.is_authenticated %}
-                    <span class="balance"><span class="wallet-icon">💰</span>{{ "%.2f"|format(current_user.balance) }}</span>
-                    <a href="{{ url_for('roulette') }}" class="icon-link" title="{{ t('nav.roulette') }}">🎰</a>
-                    <a href="{{ url_for('profile') }}" class="icon-link" title="{{ t('nav.profile') }}">👤</a>
-                    {% if current_user.is_admin %}
-                    <a href="{{ url_for('admin_users') }}" class="icon-link" title="{{ t('nav.admin_panel') }}">🛠️</a>
-                    {% endif %}
-                    <a href="{{ url_for('logout') }}" class="icon-link" title="{{ t('nav.logout') }}" aria-label="{{ t('nav.logout') }}">🚪</a>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('profile') }}" class="balance" title="{{ t('nav.profile') }}">
+                <span class="wallet-icon">💰</span>{{ "%.2f"|format(current_user.balance) }}
+            </a>
+            {% endif %}
+        </div>
+        <div class="header-utility">
+            <select class="lang-select" onchange="if (this.value) location.href = this.value;" aria-label="{{ t('nav.language') }}">
+                {% for code, label in LANGUAGES.items() %}
+                <option value="{{ url_for('set_language', lang_code=code) }}" {{ 'selected' if code == current_lang else '' }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('roulette') }}" class="icon-link" title="{{ t('nav.roulette') }}">🎰</a>
+                <a href="{{ url_for('profile') }}" class="icon-link" title="{{ t('nav.profile') }}">👤</a>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('admin_users') }}" class="icon-link" title="{{ t('nav.admin_panel') }}">🛠️</a>
                 {% endif %}
-            </div>
+                <a href="{{ url_for('logout') }}" class="icon-link" title="{{ t('nav.logout') }}" aria-label="{{ t('nav.logout') }}">🚪</a>
+            {% endif %}
         </div>
     </header>
 

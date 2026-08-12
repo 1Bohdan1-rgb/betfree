@@ -22,6 +22,7 @@ TRANSLATIONS = {
         "nav.profile": "Профіль",
         "nav.admin_panel": "Адмін-панель користувачів",
         "nav.logout": "Вийти",
+        "nav.language": "Мова",
 
         # ---------- загальне ----------
         "common.back": "Назад",
@@ -234,6 +235,7 @@ TRANSLATIONS = {
         "nav.profile": "Profile",
         "nav.admin_panel": "User admin panel",
         "nav.logout": "Log out",
+        "nav.language": "Language",
 
         "common.back": "Back",
         "common.save_changes": "Save changes",
@@ -435,6 +437,7 @@ TRANSLATIONS = {
         "nav.profile": "Profil",
         "nav.admin_panel": "Benutzerverwaltung",
         "nav.logout": "Abmelden",
+        "nav.language": "Sprache",
 
         "common.back": "Zurück",
         "common.save_changes": "Änderungen speichern",
