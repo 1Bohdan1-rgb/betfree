@@ -8,12 +8,39 @@
 <div class="card">
     <h2>{{ t('admin.new_sponsor_title') }}</h2>
     <form method="POST" action="{{ url_for('admin_sponsors') }}">
+        <h3 class="form-section">{{ t('admin.brand_section_title') }}</h3>
         <label>{{ t('admin.sponsor_name_label') }}</label>
         <input type="text" name="sponsor_name" required>
 
         <label>{{ t('admin.logo_url_label') }}</label>
         <input type="url" name="sponsor_logo_url" placeholder="https://...">
 
+        <label>{{ t('admin.website_url_label') }}</label>
+        <input type="url" name="website_url" placeholder="https://...">
+
+        <label>{{ t('admin.slogan_label') }}</label>
+        <input type="text" name="slogan">
+
+        <label>{{ t('admin.brand_color_primary_label') }}</label>
+        <input type="text" name="brand_color_primary" placeholder="#D4AF37" pattern="^#[0-9A-Fa-f]{6}$" maxlength="7">
+
+        <label>{{ t('admin.brand_color_secondary_label') }}</label>
+        <input type="text" name="brand_color_secondary" placeholder="#0A1428" pattern="^#[0-9A-Fa-f]{6}$" maxlength="7">
+
+        <h3 class="form-section">{{ t('admin.contact_section_title') }}</h3>
+        <label>{{ t('admin.contact_address_label') }}</label>
+        <input type="text" name="contact_address">
+
+        <label>{{ t('admin.contact_email_label') }}</label>
+        <input type="email" name="contact_email">
+
+        <label>{{ t('admin.contact_phone_label') }}</label>
+        <input type="tel" name="contact_phone">
+
+        <label>{{ t('admin.contact_person_label') }}</label>
+        <input type="text" name="contact_person_name">
+
+        <h3 class="form-section">{{ t('admin.roulette_settings_section_title') }}</h3>
         <label>{{ t('admin.min_reward_label') }}</label>
         <input type="number" step="0.01" name="min_reward" value="5" required>
 
@@ -42,21 +69,53 @@
 {% for s in sponsors %}
 <div class="card" id="sponsor-{{ s.id }}">
     <div class="admin-user-header">
-        <strong style="color:#f5f5f5;">{{ s.sponsor_name }}</strong>
+        <strong style="color:#f5f5f5;">
+            {{ s.sponsor_name }}
+            {% if s.brand_color_primary %}<span class="color-chip" style="background:{{ s.brand_color_primary }};" title="{{ s.brand_color_primary }}"></span>{% endif %}
+            {% if s.brand_color_secondary %}<span class="color-chip" style="background:{{ s.brand_color_secondary }};" title="{{ s.brand_color_secondary }}"></span>{% endif %}
+        </strong>
         {% if s.is_active %}
         <span class="verify-badge verified">🟢 {{ t('common.active') }}</span>
         {% else %}
         <span class="verify-badge unverified">⚪ {{ t('common.inactive') }}</span>
         {% endif %}
     </div>
+    {% if s.slogan %}<p class="event-meta" style="font-style:italic;">«{{ s.slogan }}»</p>{% endif %}
 
     <form method="POST" action="{{ url_for('edit_sponsor', sponsor_id=s.id) }}">
+        <h3 class="form-section">{{ t('admin.brand_section_title') }}</h3>
         <label>{{ t('admin.sponsor_name_label') }}</label>
         <input type="text" name="sponsor_name" value="{{ s.sponsor_name }}" required>
 
         <label>{{ t('admin.logo_url_label') }}</label>
         <input type="url" name="sponsor_logo_url" value="{{ s.sponsor_logo_url or '' }}" placeholder="https://...">
 
+        <label>{{ t('admin.website_url_label') }}</label>
+        <input type="url" name="website_url" value="{{ s.website_url or '' }}" placeholder="https://...">
+
+        <label>{{ t('admin.slogan_label') }}</label>
+        <input type="text" name="slogan" value="{{ s.slogan or '' }}">
+
+        <label>{{ t('admin.brand_color_primary_label') }}</label>
+        <input type="text" name="brand_color_primary" value="{{ s.brand_color_primary or '' }}" placeholder="#D4AF37" pattern="^#[0-9A-Fa-f]{6}$" maxlength="7">
+
+        <label>{{ t('admin.brand_color_secondary_label') }}</label>
+        <input type="text" name="brand_color_secondary" value="{{ s.brand_color_secondary or '' }}" placeholder="#0A1428" pattern="^#[0-9A-Fa-f]{6}$" maxlength="7">
+
+        <h3 class="form-section">{{ t('admin.contact_section_title') }}</h3>
+        <label>{{ t('admin.contact_address_label') }}</label>
+        <input type="text" name="contact_address" value="{{ s.contact_address or '' }}">
+
+        <label>{{ t('admin.contact_email_label') }}</label>
+        <input type="email" name="contact_email" value="{{ s.contact_email or '' }}">
+
+        <label>{{ t('admin.contact_phone_label') }}</label>
+        <input type="tel" name="contact_phone" value="{{ s.contact_phone or '' }}">
+
+        <label>{{ t('admin.contact_person_label') }}</label>
+        <input type="text" name="contact_person_name" value="{{ s.contact_person_name or '' }}">
+
+        <h3 class="form-section">{{ t('admin.roulette_settings_section_title') }}</h3>
         <label>{{ t('admin.min_reward_label') }}</label>
         <input type="number" step="0.01" name="min_reward" value="{{ s.min_reward }}" required>
 

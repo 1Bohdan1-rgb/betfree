@@ -107,6 +107,13 @@
         /* рядок користувача в адмін-панелі */
         .admin-user-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 
+        /* заголовки блоків усередині довгих форм (напр. Бренд / Контактні дані / Рулетка) */
+        .form-section { margin: 20px 0 6px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 15px; }
+        .form-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
+        /* маленький чіп кольору бренду спонсора */
+        .color-chip { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.35); vertical-align: middle; margin-left: 4px; }
+
         /* рулетка */
         .wheel-wrap { position: relative; width: 300px; height: 300px; max-width: 100%; margin: 10px auto 24px; }
         .wheel-pointer { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 36px; line-height: 1; color: var(--gold); z-index: 2; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.7)); }

@@ -553,6 +553,12 @@ def roulette():
 
 # ---------- АДМІН: СПОНСОРИ (CRUD) ----------
 
+def _optional_form_fields(*names):
+    """Витягує з request.form список необов'язкових текстових полів
+    (пусте значення -> None), щоб не дублювати .strip() or None у create/edit."""
+    return {name: request.form.get(name, "").strip() or None for name in names}
+
+
 @app.route("/admin/sponsors", methods=["GET", "POST"])
 @login_required
 def admin_sponsors():
@@ -562,12 +568,14 @@ def admin_sponsors():
 
     if request.method == "POST":
         sponsor_name = request.form["sponsor_name"].strip()
-        sponsor_logo_url = request.form.get("sponsor_logo_url", "").strip() or None
         min_reward = float(request.form["min_reward"])
         max_reward = float(request.form["max_reward"])
-        promo_code = request.form.get("promo_code", "").strip() or None
-        promo_description = request.form.get("promo_description", "").strip() or None
         voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
+        extra = _optional_form_fields(
+            "sponsor_logo_url", "website_url", "brand_color_primary", "brand_color_secondary",
+            "slogan", "promo_code", "promo_description",
+            "contact_address", "contact_email", "contact_phone", "contact_person_name",
+        )
 
         if min_reward > max_reward:
             flash(t("admin.min_max_error"))
@@ -575,12 +583,10 @@ def admin_sponsors():
 
         sponsor = SponsorSpin(
             sponsor_name=sponsor_name,
-            sponsor_logo_url=sponsor_logo_url,
             min_reward=min_reward,
             max_reward=max_reward,
-            promo_code=promo_code,
-            promo_description=promo_description,
             voucher_validity_days=voucher_validity_days,
+            **extra,
         )
         db.session.add(sponsor)
         db.session.commit()
@@ -607,12 +613,15 @@ def edit_sponsor(sponsor_id):
         return redirect(url_for("admin_sponsors"))
 
     sponsor.sponsor_name = request.form["sponsor_name"].strip()
-    sponsor.sponsor_logo_url = request.form.get("sponsor_logo_url", "").strip() or None
     sponsor.min_reward = min_reward
     sponsor.max_reward = max_reward
-    sponsor.promo_code = request.form.get("promo_code", "").strip() or None
-    sponsor.promo_description = request.form.get("promo_description", "").strip() or None
     sponsor.voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
+    for field, value in _optional_form_fields(
+        "sponsor_logo_url", "website_url", "brand_color_primary", "brand_color_secondary",
+        "slogan", "promo_code", "promo_description",
+        "contact_address", "contact_email", "contact_phone", "contact_person_name",
+    ).items():
+        setattr(sponsor, field, value)
     db.session.commit()
     flash(t("admin.sponsor_updated", name=sponsor.sponsor_name))
     return redirect(url_for("admin_sponsors"))
@@ -938,6 +947,14 @@ def migrate_sponsor_spin_columns():
         "promo_code": "VARCHAR(50)",
         "promo_description": "VARCHAR(255)",
         "voucher_validity_days": "INTEGER DEFAULT 7",
+        "website_url": "VARCHAR(500)",
+        "brand_color_primary": "VARCHAR(7)",
+        "brand_color_secondary": "VARCHAR(7)",
+        "slogan": "VARCHAR(255)",
+        "contact_address": "VARCHAR(255)",
+        "contact_email": "VARCHAR(120)",
+        "contact_phone": "VARCHAR(30)",
+        "contact_person_name": "VARCHAR(120)",
     }
     with db.engine.connect() as conn:
         for col_name, col_type in new_columns.items():
