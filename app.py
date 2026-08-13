@@ -853,7 +853,8 @@ def create_event():
         title = request.form["title"]
         description = request.form["description"]
         sport_type = request.form["sport_type"]
-        prize_pool = float(request.form["prize_pool"])
+        # поле приховане й необов'язкове на клієнті, коли тип призу "voucher"
+        prize_pool = float(request.form.get("prize_pool") or 0)
         match_date = datetime.strptime(request.form["match_date"], "%Y-%m-%dT%H:%M")
         options = request.form.getlist("options")
         sponsor_spin_id = request.form.get("sponsor_spin_id") or None
@@ -908,7 +909,8 @@ def edit_event(event_id):
         event.title = request.form["title"]
         event.description = request.form["description"]
         event.sport_type = request.form["sport_type"]
-        event.prize_pool = float(request.form["prize_pool"])
+        # поле приховане й необов'язкове на клієнті, коли тип призу "voucher"
+        event.prize_pool = float(request.form.get("prize_pool") or 0)
         event.prize_type = prize_type
         event.voucher_count = voucher_count
         event.match_date = datetime.strptime(request.form["match_date"], "%Y-%m-%dT%H:%M")

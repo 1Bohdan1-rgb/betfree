@@ -20,18 +20,22 @@
             {% endfor %}
         </select>
 
-        <label>{{ t('events.prize_pool_label') }}</label>
-        <input type="number" step="0.01" name="prize_pool" value="{{ event.prize_pool }}" required>
-
         <label>{{ t('events.prize_type_label') }}</label>
-        <select name="prize_type">
+        <select name="prize_type" id="prize-type-select">
             <option value="money" {{ "selected" if event.prize_type == "money" else "" }}>{{ t('events.prize_type_money') }}</option>
             <option value="voucher" {{ "selected" if event.prize_type == "voucher" else "" }}>{{ t('events.prize_type_voucher') }}</option>
             <option value="mixed" {{ "selected" if event.prize_type == "mixed" else "" }}>{{ t('events.prize_type_mixed') }}</option>
         </select>
 
-        <label>{{ t('events.voucher_count_label') }}</label>
-        <input type="number" step="1" min="1" name="voucher_count" value="{{ event.voucher_count or '' }}" placeholder="{{ t('events.voucher_count_placeholder') }}">
+        <div id="prize-pool-group">
+            <label>{{ t('events.prize_pool_label') }}</label>
+            <input type="number" step="0.01" name="prize_pool" id="prize-pool-input" value="{{ event.prize_pool }}" required>
+        </div>
+
+        <div id="voucher-count-group">
+            <label>{{ t('events.voucher_count_label') }}</label>
+            <input type="number" step="1" min="1" name="voucher_count" id="voucher-count-input" value="{{ event.voucher_count or '' }}" placeholder="{{ t('events.voucher_count_placeholder') }}">
+        </div>
 
         <label>{{ t('events.sponsor_label') }}</label>
         <select name="sponsor_spin_id">
@@ -47,4 +51,31 @@
         <button class="btn" type="submit">{{ t('common.save_changes') }}</button>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const typeSelect = document.getElementById("prize-type-select");
+    const poolGroup = document.getElementById("prize-pool-group");
+    const poolInput = document.getElementById("prize-pool-input");
+    const countGroup = document.getElementById("voucher-count-group");
+    const countInput = document.getElementById("voucher-count-input");
+
+    function updatePrizeFields() {
+        const type = typeSelect.value;
+        const showPool = type === "money" || type === "mixed";
+        const showCount = type === "voucher" || type === "mixed";
+
+        poolGroup.style.display = showPool ? "" : "none";
+        poolInput.required = showPool;
+
+        countGroup.style.display = showCount ? "" : "none";
+        countInput.required = showCount;
+    }
+
+    typeSelect.addEventListener("change", updatePrizeFields);
+    updatePrizeFields();
+})();
+</script>
 {% endblock %}
