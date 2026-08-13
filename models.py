@@ -62,6 +62,8 @@ class Event(db.Model):
     description = db.Column(db.Text)
     sport_type = db.Column(db.String(50))
     prize_pool = db.Column(db.Float, default=0.0)
+    prize_type = db.Column(db.String(20), nullable=False, default="money")  # "money" / "voucher" / "mixed"
+    voucher_count = db.Column(db.Integer, nullable=True)  # скільки переможців отримають ваучер (voucher/mixed)
     status = db.Column(db.String(20), default="open")  # open / closed / settled
     match_date = db.Column(db.DateTime)
     created_by = db.Column(db.Integer, db.ForeignKey("user.id"))
@@ -157,8 +159,11 @@ def generate_voucher_code():
 class VoucherRedemption(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    sponsor_spin_id = db.Column(db.Integer, db.ForeignKey("sponsor_spin.id"), nullable=False)
+    # nullable: ваучер може прийти або від рулетки (sponsor_spin_id), або від події
+    # (event_id, з sponsor_spin_id успадкованим від event.sponsor_spin_id)
+    sponsor_spin_id = db.Column(db.Integer, db.ForeignKey("sponsor_spin.id"), nullable=True)
     spin_prize_id = db.Column(db.Integer, db.ForeignKey("spin_prize.id"), nullable=True)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
     unique_code = db.Column(db.String(20), unique=True, nullable=False)
     is_used = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -169,6 +174,7 @@ class VoucherRedemption(db.Model):
     user = db.relationship("User", backref="vouchers")
     sponsor = db.relationship("SponsorSpin", backref="voucher_redemptions")
     prize = db.relationship("SpinPrize")
+    event = db.relationship("Event", backref="vouchers")
 
     @property
     def days_left(self):
@@ -187,6 +193,18 @@ class VoucherRedemption(db.Model):
         if self.days_left <= 3:
             return "expiring"
         return "active"
+
+    @property
+    def display_label(self):
+        """Текст знижки для картки ваучера. Із рулетки — беремо з SpinPrize
+        (custom_label або -X%). З події (немає SpinPrize) — з промо-полів
+        спонсора події. Повертає None, якщо взагалі нема з чого взяти текст
+        (шаблон сам підставляє загальний fallback через t())."""
+        if self.prize:
+            return self.prize.custom_label or f"-{self.prize.voucher_percent}%"
+        if self.sponsor:
+            return self.sponsor.promo_description or self.sponsor.promo_code
+        return None
 
 
 class PushSubscription(db.Model):

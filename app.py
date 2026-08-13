@@ -768,17 +768,26 @@ def admin_verify_voucher():
         action = request.form.get("action", "search")
 
         if action == "confirm":
-            voucher = VoucherRedemption.query.get_or_404(int(request.form["voucher_id"]))
+            voucher_id = int(request.form["voucher_id"])
+            voucher = VoucherRedemption.query.get_or_404(voucher_id)
             searched_code = voucher.unique_code
-            if voucher.is_used:
-                flash(t("admin.voucher_already_used"))
-            elif voucher.is_expired:
+
+            if voucher.is_expired:
                 flash(t("admin.voucher_expired_flash"))
             else:
-                voucher.is_used = True
-                voucher.used_at = datetime.utcnow()
+                # атомарний UPDATE замість read-then-write: якщо форму
+                # надіслали двічі поспіль (або два адміни одночасно),
+                # тільки один запит реально позначить ваучер використаним
+                updated_rows = VoucherRedemption.query.filter_by(
+                    id=voucher_id, is_used=False
+                ).update({"is_used": True, "used_at": datetime.utcnow()})
                 db.session.commit()
-                flash(t("admin.voucher_confirmed", code=voucher.unique_code))
+
+                if updated_rows:
+                    flash(t("admin.voucher_confirmed", code=searched_code))
+                else:
+                    flash(t("admin.voucher_already_used"))
+                voucher = VoucherRedemption.query.get(voucher_id)  # свіжий стан для картки нижче
         else:
             searched_code = request.form.get("unique_code", "").strip().upper()
             voucher = VoucherRedemption.query.filter_by(unique_code=searched_code).first()
@@ -811,6 +820,28 @@ def dashboard():
 
 # ---------- EVENTS (ADMIN / РЕКЛАМОДАВЕЦЬ) ----------
 
+def _parse_prize_type_fields(form, sponsor_spin_id):
+    """Читає prize_type/voucher_count з форми події й валідує їх:
+    для voucher/mixed потрібен і обраний спонсор (звідти береться текст
+    ваучера — promo_code/promo_description), і кількість ваучерів > 0.
+    Повертає (prize_type, voucher_count, error_message_or_None)."""
+    prize_type = form.get("prize_type", "money")
+    if prize_type not in ("money", "voucher", "mixed"):
+        prize_type = "money"
+
+    if prize_type == "money":
+        return prize_type, None, None
+
+    if not sponsor_spin_id:
+        return prize_type, None, t("events.sponsor_required_for_voucher")
+
+    voucher_count_raw = form.get("voucher_count", "").strip()
+    if not voucher_count_raw or int(voucher_count_raw) <= 0:
+        return prize_type, None, t("events.voucher_count_required")
+
+    return prize_type, int(voucher_count_raw), None
+
+
 @app.route("/event/create", methods=["GET", "POST"])
 @login_required
 def create_event():
@@ -827,11 +858,18 @@ def create_event():
         options = request.form.getlist("options")
         sponsor_spin_id = request.form.get("sponsor_spin_id") or None
 
+        prize_type, voucher_count, error = _parse_prize_type_fields(request.form, sponsor_spin_id)
+        if error:
+            flash(error)
+            return redirect(url_for("create_event"))
+
         event = Event(
             title=title,
             description=description,
             sport_type=sport_type,
             prize_pool=prize_pool,
+            prize_type=prize_type,
+            voucher_count=voucher_count,
             match_date=match_date,
             created_by=current_user.id,
             sponsor_spin_id=int(sponsor_spin_id) if sponsor_spin_id else None,
@@ -861,12 +899,19 @@ def edit_event(event_id):
     event = Event.query.get_or_404(event_id)
 
     if request.method == "POST":
+        sponsor_spin_id = request.form.get("sponsor_spin_id") or None
+        prize_type, voucher_count, error = _parse_prize_type_fields(request.form, sponsor_spin_id)
+        if error:
+            flash(error)
+            return redirect(url_for("edit_event", event_id=event.id))
+
         event.title = request.form["title"]
         event.description = request.form["description"]
         event.sport_type = request.form["sport_type"]
         event.prize_pool = float(request.form["prize_pool"])
+        event.prize_type = prize_type
+        event.voucher_count = voucher_count
         event.match_date = datetime.strptime(request.form["match_date"], "%Y-%m-%dT%H:%M")
-        sponsor_spin_id = request.form.get("sponsor_spin_id") or None
         event.sponsor_spin_id = int(sponsor_spin_id) if sponsor_spin_id else None
 
         db.session.commit()
@@ -931,12 +976,26 @@ def settle_event(event_id):
     # pool-модель: приз ділиться порівну між усіма, хто вгадав переможця;
     # якщо ніхто не вгадав — призовий фонд нікому не роздається
     if winning_bets:
-        payout_amount = round(event.prize_pool / len(winning_bets), 2)
-        for bet in winning_bets:
-            user = User.query.get(bet.user_id)
-            user.balance += payout_amount
+        if event.prize_type in ("money", "mixed"):
+            payout_amount = round(event.prize_pool / len(winning_bets), 2)
+            for bet in winning_bets:
+                user = User.query.get(bet.user_id)
+                user.balance += payout_amount
+                db.session.add(Payout(user_id=user.id, event_id=event_id, amount=payout_amount))
 
-            db.session.add(Payout(user_id=user.id, event_id=event_id, amount=payout_amount))
+        if event.prize_type in ("voucher", "mixed") and event.voucher_count:
+            # лотерея серед переможців: скільки ваучерів — стільки випадкових
+            # переможців їх отримають, решта в цьому режимі не отримує нічого
+            lucky_bets = random.sample(winning_bets, min(event.voucher_count, len(winning_bets)))
+            validity_days = event.sponsor.voucher_validity_days if event.sponsor else 7
+            for bet in lucky_bets:
+                db.session.add(VoucherRedemption(
+                    user_id=bet.user_id,
+                    sponsor_spin_id=event.sponsor_spin_id,
+                    event_id=event.id,
+                    unique_code=generate_unique_voucher_code(),
+                    expires_at=datetime.utcnow() + timedelta(days=validity_days),
+                ))
 
     event.status = "settled"
     db.session.commit()
@@ -1026,12 +1085,27 @@ def migrate_voucher_redemption_columns():
     existing_cols = {col["name"] for col in inspector.get_columns("voucher_redemption")}
     new_columns = {
         "expiry_reminder_sent": "BOOLEAN DEFAULT 0",
+        "event_id": "INTEGER",  # ваучер від події (окремо від sponsor_spin_id/spin_prize_id рулетки)
     }
     with db.engine.connect() as conn:
         for col_name, col_type in new_columns.items():
             if col_name not in existing_cols:
                 conn.execute(text(f"ALTER TABLE voucher_redemption ADD COLUMN {col_name} {col_type}"))
         conn.commit()
+
+    # sponsor_spin_id раніше був NOT NULL (ваучер завжди від спонсора рулетки);
+    # тепер ваучер може прийти й від події (event_id), без власного спонсора.
+    # SQLite не вміє ALTER COLUMN DROP NOT NULL — пропускаємо (локальна БД
+    # одноразова, поза git); Postgres (прод) підтримує це напряму.
+    if db.engine.dialect.name == "postgresql":
+        sponsor_col = next(
+            (c for c in inspector.get_columns("voucher_redemption") if c["name"] == "sponsor_spin_id"),
+            None,
+        )
+        if sponsor_col and not sponsor_col["nullable"]:
+            with db.engine.connect() as conn:
+                conn.execute(text("ALTER TABLE voucher_redemption ALTER COLUMN sponsor_spin_id DROP NOT NULL"))
+                conn.commit()
 
 
 def migrate_bet_columns():
@@ -1049,17 +1123,23 @@ def migrate_bet_columns():
 
 
 def migrate_event_columns():
-    """Легка авто-міграція SQLite: додає нову nullable-колонку Event.sponsor_spin_id,
-    якщо вона відсутня в уже існуючій таблиці (create_all її не додає)."""
+    """Легка авто-міграція SQLite: додає нові nullable-колонки Event,
+    якщо вони відсутні в уже існуючій таблиці (create_all їх не додає)."""
     inspector = inspect(db.engine)
     if "event" not in inspector.get_table_names():
         return
 
     existing_cols = {col["name"] for col in inspector.get_columns("event")}
-    if "sponsor_spin_id" not in existing_cols:
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE event ADD COLUMN sponsor_spin_id INTEGER"))
-            conn.commit()
+    new_columns = {
+        "sponsor_spin_id": "INTEGER",
+        "prize_type": "VARCHAR(20) DEFAULT 'money'",
+        "voucher_count": "INTEGER",
+    }
+    with db.engine.connect() as conn:
+        for col_name, col_type in new_columns.items():
+            if col_name not in existing_cols:
+                conn.execute(text(f"ALTER TABLE event ADD COLUMN {col_name} {col_type}"))
+        conn.commit()
 
 
 # Ініціалізація БД/планувальника виконується на рівні модуля (а не лише

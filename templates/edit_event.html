@@ -23,6 +23,16 @@
         <label>{{ t('events.prize_pool_label') }}</label>
         <input type="number" step="0.01" name="prize_pool" value="{{ event.prize_pool }}" required>
 
+        <label>{{ t('events.prize_type_label') }}</label>
+        <select name="prize_type">
+            <option value="money" {{ "selected" if event.prize_type == "money" else "" }}>{{ t('events.prize_type_money') }}</option>
+            <option value="voucher" {{ "selected" if event.prize_type == "voucher" else "" }}>{{ t('events.prize_type_voucher') }}</option>
+            <option value="mixed" {{ "selected" if event.prize_type == "mixed" else "" }}>{{ t('events.prize_type_mixed') }}</option>
+        </select>
+
+        <label>{{ t('events.voucher_count_label') }}</label>
+        <input type="number" step="1" min="1" name="voucher_count" value="{{ event.voucher_count or '' }}" placeholder="{{ t('events.voucher_count_placeholder') }}">
+
         <label>{{ t('events.sponsor_label') }}</label>
         <select name="sponsor_spin_id">
             <option value="">{{ t('events.no_sponsor_option') }}</option>

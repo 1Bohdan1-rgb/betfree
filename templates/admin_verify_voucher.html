@@ -19,8 +19,11 @@
 <div class="card voucher-card voucher-{{ voucher.badge_status }}">
     <h3 class="promo-code" style="display:inline-block;">{{ voucher.unique_code }}</h3>
     <p><strong>{{ t('admin.voucher_user_label') }}</strong> {{ voucher.user.username }}</p>
-    <p><strong>{{ t('admin.voucher_sponsor_label') }}</strong> {{ voucher.sponsor.sponsor_name }}</p>
-    <p><strong>{{ t('admin.voucher_prize_label') }}</strong> {{ (voucher.prize.custom_label if voucher.prize else none) or ("-" ~ (voucher.prize.voucher_percent if voucher.prize else '?') ~ "%") }}</p>
+    <p><strong>{{ t('admin.voucher_sponsor_label') }}</strong> {{ voucher.sponsor.sponsor_name if voucher.sponsor else '—' }}</p>
+    <p><strong>{{ t('admin.voucher_prize_label') }}</strong> {{ voucher.display_label or t('vouchers.generic_voucher_label') }}</p>
+    {% if voucher.event %}
+    <p><strong>{{ t('admin.voucher_source_event') }}</strong> {{ voucher.event.title }}</p>
+    {% endif %}
     <p><strong>{{ t('vouchers.received_label') }}</strong> {{ voucher.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
     <p><strong>{{ t('vouchers.valid_until_label') }}</strong> {{ voucher.expires_at.strftime('%d.%m.%Y %H:%M') }}</p>
 
