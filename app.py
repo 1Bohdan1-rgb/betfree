@@ -924,6 +924,29 @@ def edit_event(event_id):
     return render_template("edit_event.html", event=event, sport_choices=SPORT_CHOICES, sponsors=sponsors)
 
 
+@app.route("/event/<int:event_id>/delete", methods=["POST"])
+@login_required
+def delete_event(event_id):
+    if not current_user.is_admin:
+        flash(t("events.only_admin_delete"))
+        return redirect(url_for("dashboard"))
+
+    event = Event.query.get_or_404(event_id)
+
+    # якщо подію вже розраховано й реально видано гроші/ваучери — це фінансова
+    # історія, її не можна тихо знищити разом з подією (аналогічно до заборони
+    # видаляти спонсора з виданими ваучерами)
+    if Payout.query.filter_by(event_id=event.id).first() or VoucherRedemption.query.filter_by(event_id=event.id).first():
+        flash(t("events.delete_blocked_settled"))
+        return redirect(url_for("view_event", event_id=event.id))
+
+    event_title = event.title
+    db.session.delete(event)  # каскадно видалить EventOption/Bet (cascade="all, delete-orphan")
+    db.session.commit()
+    flash(t("events.deleted", title=event_title))
+    return redirect(url_for("dashboard"))
+
+
 @app.route("/event/<int:event_id>")
 @login_required
 def view_event(event_id):
