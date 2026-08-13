@@ -36,7 +36,16 @@
                     </span>
                 </div>
             </div>
-            <div class="prize-badge">🏆 {{ "%.0f"|format(e.prize_pool) }}</div>
+            {% if e.prize_type == 'voucher' %}
+            <div class="prize-badge">🎟️ {{ t('events.voucher_count_badge', count=e.voucher_count) }}</div>
+            {% elif e.prize_type == 'mixed' %}
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+                <div class="prize-badge">🏆 {{ "%.0f"|format(e.prize_pool) }} {{ t('common.coins_word') }}</div>
+                <div class="prize-badge">🎟️ {{ t('events.voucher_count_badge', count=e.voucher_count) }}</div>
+            </div>
+            {% else %}
+            <div class="prize-badge">🏆 {{ "%.0f"|format(e.prize_pool) }} {{ t('common.coins_word') }}</div>
+            {% endif %}
         </div>
         {% if e.sponsor %}
         <div class="event-sponsor-strip">

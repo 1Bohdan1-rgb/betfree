@@ -18,7 +18,16 @@
                     </span>
                 </div>
             </div>
-            <div class="prize-badge">🏆 {{ "%.0f"|format(event.prize_pool) }}</div>
+            {% if event.prize_type == 'voucher' %}
+            <div class="prize-badge">🎟️ {{ t('events.voucher_count_badge', count=event.voucher_count) }}</div>
+            {% elif event.prize_type == 'mixed' %}
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+                <div class="prize-badge">🏆 {{ "%.0f"|format(event.prize_pool) }} {{ t('common.coins_word') }}</div>
+                <div class="prize-badge">🎟️ {{ t('events.voucher_count_badge', count=event.voucher_count) }}</div>
+            </div>
+            {% else %}
+            <div class="prize-badge">🏆 {{ "%.0f"|format(event.prize_pool) }} {{ t('common.coins_word') }}</div>
+            {% endif %}
         </div>
         <p>{{ event.description }}</p>
         {% if event.sponsor %}
@@ -51,7 +60,13 @@
                 <label for="opt-{{ opt.id }}" class="option-card">{{ opt.option_text }}</label>
                 {% endfor %}
             </div>
+            {% if event.prize_type == 'voucher' %}
+            <p class="event-meta">{{ t('events.voucher_hint', count=event.voucher_count) }}</p>
+            {% elif event.prize_type == 'mixed' %}
+            <p class="event-meta">{{ t('events.mixed_hint', count=event.voucher_count) }}</p>
+            {% else %}
             <p class="event-meta">{{ t('events.pool_hint') }}</p>
+            {% endif %}
             <button class="btn" type="submit">{{ t('events.choose_btn') }}</button>
         </form>
     </div>
