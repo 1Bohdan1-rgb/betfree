@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>BetFree — {% block title %}{% endblock %}</title>
 
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    {# staff-сторінки (hide_header) мають окремий маніфест зі своїм start_url:
+       інакше "На екран Дому" з /staff/... завжди відкривав би "/" з основного
+       маніфесту (так працює стандарт PWA — start_url ігнорує сторінку ярлика) #}
+    <link rel="manifest" href="{{ url_for('static', filename='manifest-staff.json' if hide_header else 'manifest.json') }}">
     <meta name="theme-color" content="#0a1428">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="BetFree">
+    <meta name="apple-mobile-web-app-title" content="{{ 'BetFree Staff' if hide_header else 'BetFree' }}">
     <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
 

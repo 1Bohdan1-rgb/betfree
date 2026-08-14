@@ -1,0 +1,24 @@
+{
+  "name": "BetFree Staff",
+  "short_name": "BetFree Staff",
+  "description": "Погашення ваучерів персоналом BetFree",
+  "start_url": "/staff/verify-voucher",
+  "scope": "/staff/",
+  "display": "standalone",
+  "theme_color": "#0a1428",
+  "background_color": "#0a1428",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

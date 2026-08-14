@@ -1,7 +1,9 @@
 const CACHE_NAME = "betfree-cache-v1";
 const PRECACHE_URLS = [
   "/login",
+  "/staff/login",
   "/static/manifest.json",
+  "/static/manifest-staff.json",
   "/static/icons/icon-192.png",
   "/static/icons/icon-512.png",
 ];
@@ -30,6 +32,12 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
+  // офлайн-фолбек: staff-розділ (/staff/...) не повинен падати на звичайний
+  // /login — інакше та сама проблема з ярликом "На екран Дому" повернеться,
+  // тільки вже через service worker, а не через маніфест
+  const isStaffRequest = new URL(request.url).pathname.startsWith("/staff/");
+  const fallbackUrl = isStaffRequest ? "/staff/login" : "/login";
+
   event.respondWith(
     fetch(request)
       .then((response) => {
@@ -37,7 +45,7 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match("/login")))
+      .catch(() => caches.match(request).then((cached) => cached || caches.match(fallbackUrl)))
   );
 });
 
