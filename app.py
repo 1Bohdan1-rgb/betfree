@@ -154,7 +154,7 @@ def inject_i18n():
     return dict(t=t, current_lang=get_locale(), LANGUAGES=LANGUAGES)
 
 
-@app.route("/set-language/<lang_code>")
+@app.route("/set-language/<lang_code>", methods=["GET", "POST"])
 def set_language(lang_code):
     if lang_code in TRANSLATIONS:
         session["lang"] = lang_code
