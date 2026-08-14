@@ -170,11 +170,15 @@ class VoucherRedemption(db.Model):
     used_at = db.Column(db.DateTime, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=False)
     expiry_reminder_sent = db.Column(db.Boolean, default=False)  # чи вже надіслано push про закінчення терміну
+    # хто фактично погасив ваучер: адмін (через /admin/verify-voucher) чи бармен (Staff);
+    # nullable — старі записи й адмінське погашення це поле не заповнюють
+    redeemed_by_staff_id = db.Column(db.Integer, db.ForeignKey("staff.id"), nullable=True)
 
     user = db.relationship("User", backref="vouchers")
     sponsor = db.relationship("SponsorSpin", backref="voucher_redemptions")
     prize = db.relationship("SpinPrize")
     event = db.relationship("Event", backref="vouchers")
+    redeemed_by_staff = db.relationship("Staff", backref="redeemed_vouchers")
 
     @property
     def days_left(self):
@@ -205,6 +209,23 @@ class VoucherRedemption(db.Model):
         if self.sponsor:
             return self.sponsor.promo_description or self.sponsor.promo_code
         return None
+
+
+class Staff(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    sponsor_spin_id = db.Column(db.Integer, db.ForeignKey("sponsor_spin.id"), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    sponsor = db.relationship("SponsorSpin", backref="staff_members")
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
 class PushSubscription(db.Model):

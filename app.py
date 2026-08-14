@@ -2,6 +2,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta, date
 from sqlalchemy import inspect, text
+from functools import wraps
 import random
 import math
 import os
@@ -11,7 +12,7 @@ from pywebpush import webpush, WebPushException
 from apscheduler.schedulers.background import BackgroundScheduler
 from models import (
     db, User, Event, EventOption, Bet, Payout, SPORT_CHOICES, SponsorSpin, SpinPrize,
-    VoucherRedemption, generate_voucher_code, PushSubscription,
+    VoucherRedemption, generate_voucher_code, PushSubscription, Staff,
 )
 from translations import t, get_locale, LANGUAGES, TRANSLATIONS
 
@@ -401,6 +402,96 @@ def logout():
     return redirect(url_for("login"))
 
 
+# ---------- STAFF AUTH (бармени спонсора — окрема роль, без зв'язку з User/Flask-Login) ----------
+
+def staff_required(view_func):
+    """Аналог @login_required для Staff: власна сесія (session['staff_id']),
+    незалежна від Flask-Login/current_user."""
+    @wraps(view_func)
+    def wrapped_view(*args, **kwargs):
+        staff_id = session.get("staff_id")
+        staff = Staff.query.get(staff_id) if staff_id else None
+        if not staff or not staff.is_active:
+            return redirect(url_for("staff_login"))
+        return view_func(*args, **kwargs)
+    return wrapped_view
+
+
+@app.route("/staff/login", methods=["GET", "POST"])
+def staff_login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        staff = Staff.query.filter_by(username=username).first()
+
+        if staff and staff.is_active and staff.check_password(password):
+            session["staff_id"] = staff.id
+            return redirect("/staff/verify-voucher")
+        flash(t("auth.invalid_credentials"))
+
+    return render_template("staff_login.html", hide_header=True)
+
+
+@app.route("/staff/logout")
+def staff_logout():
+    session.pop("staff_id", None)
+    return redirect(url_for("staff_login"))
+
+
+@app.route("/staff/verify-voucher", methods=["GET", "POST"])
+@staff_required
+def staff_verify_voucher():
+    staff = Staff.query.get(session["staff_id"])
+    voucher = None
+    searched_code = ""
+
+    if request.method == "POST":
+        searched_code = request.form.get("unique_code", "").strip().upper()
+        voucher = VoucherRedemption.query.filter_by(unique_code=searched_code).first()
+
+        if not voucher:
+            flash(t("staff.voucher_not_found"))
+        elif voucher.sponsor_spin_id != staff.sponsor_spin_id:
+            # ваучер існує, але виданий іншим закладом — не показуємо деталі чужого ваучера
+            flash(t("staff.access_denied_wrong_venue"))
+            voucher = None
+
+    return render_template(
+        "staff_verify_voucher.html", voucher=voucher, searched_code=searched_code, hide_header=True
+    )
+
+
+@app.route("/staff/redeem-voucher/<code>", methods=["POST"])
+@staff_required
+def staff_redeem_voucher(code):
+    staff = Staff.query.get(session["staff_id"])
+    voucher = VoucherRedemption.query.filter_by(unique_code=code).first()
+
+    if not voucher:
+        flash(t("staff.voucher_not_found"))
+        return redirect(url_for("staff_verify_voucher"))
+
+    # не довіряти лише формі: приналежність закладу перевіряємо ще раз тут
+    if voucher.sponsor_spin_id != staff.sponsor_spin_id:
+        flash(t("staff.access_denied_wrong_venue"))
+        return redirect(url_for("staff_verify_voucher"))
+
+    if voucher.is_expired:
+        flash(t("admin.voucher_expired_flash"))
+    else:
+        # атомарний UPDATE, як у /admin/verify-voucher: захист від подвійного погашення
+        updated_rows = VoucherRedemption.query.filter_by(id=voucher.id, is_used=False).update(
+            {"is_used": True, "used_at": datetime.utcnow(), "redeemed_by_staff_id": staff.id}
+        )
+        db.session.commit()
+        flash(t("admin.voucher_confirmed", code=code) if updated_rows else t("admin.voucher_already_used"))
+
+    voucher = VoucherRedemption.query.get(voucher.id)  # свіжий стан для картки нижче
+    return render_template(
+        "staff_verify_voucher.html", voucher=voucher, searched_code=code, hide_header=True
+    )
+
+
 # ---------- ПРОФІЛЬ ----------
 
 @app.route("/profile", methods=["GET", "POST"])
@@ -698,6 +789,85 @@ def delete_sponsor(sponsor_id):
     db.session.commit()
     flash(t("admin.sponsor_deleted", name=sponsor_name))
     return redirect(url_for("admin_sponsors"))
+
+
+# ---------- АДМІН: STAFF (персонал спонсора — керується зі сторінки деталей спонсора) ----------
+
+def admin_required(view_func):
+    """@login_required + перевірка current_user.is_admin в одному декораторі."""
+    @wraps(view_func)
+    @login_required
+    def wrapped_view(*args, **kwargs):
+        if not current_user.is_admin:
+            flash(t("admin.only_admin_action"))
+            return redirect(url_for("dashboard"))
+        return view_func(*args, **kwargs)
+    return wrapped_view
+
+
+@app.route("/admin/sponsor/<int:sponsor_id>/staff/new", methods=["GET", "POST"])
+@admin_required
+def new_sponsor_staff(sponsor_id):
+    sponsor = SponsorSpin.query.get_or_404(sponsor_id)
+
+    if request.method == "POST":
+        username = request.form["username"].strip()
+        password = request.form["password"]
+        is_active = bool(request.form.get("is_active"))
+
+        if Staff.query.filter_by(username=username).first():
+            flash(t("admin.staff_username_taken"))
+            return redirect(url_for("new_sponsor_staff", sponsor_id=sponsor.id))
+
+        staff = Staff(username=username, sponsor_spin_id=sponsor.id, is_active=is_active)
+        staff.set_password(password)
+        db.session.add(staff)
+        db.session.commit()
+        flash(t("admin.staff_added", username=staff.username))
+        return redirect(url_for("sponsor_detail", sponsor_id=sponsor.id))
+
+    return render_template("admin_staff_form.html", staff=None, sponsor=sponsor)
+
+
+@app.route("/admin/sponsor/<int:sponsor_id>/staff/<int:staff_id>/edit", methods=["GET", "POST"])
+@admin_required
+def edit_sponsor_staff(sponsor_id, staff_id):
+    sponsor = SponsorSpin.query.get_or_404(sponsor_id)
+    staff = Staff.query.filter_by(id=staff_id, sponsor_spin_id=sponsor.id).first_or_404()
+
+    if request.method == "POST":
+        staff.is_active = bool(request.form.get("is_active"))
+
+        new_password = request.form.get("password", "").strip()
+        if new_password:
+            staff.set_password(new_password)
+
+        db.session.commit()
+        flash(t("admin.staff_updated", username=staff.username))
+        return redirect(url_for("sponsor_detail", sponsor_id=sponsor.id))
+
+    return render_template("admin_staff_form.html", staff=staff, sponsor=sponsor)
+
+
+@app.route("/admin/sponsor/<int:sponsor_id>/staff/<int:staff_id>/delete", methods=["POST"])
+@admin_required
+def delete_sponsor_staff(sponsor_id, staff_id):
+    sponsor = SponsorSpin.query.get_or_404(sponsor_id)
+    staff = Staff.query.filter_by(id=staff_id, sponsor_spin_id=sponsor.id).first_or_404()
+    username = staff.username
+
+    # погашення ваучерів — історія хто що видав; якщо вона є, акаунт не видаляємо
+    # назавжди, а лише деактивуємо (аналогічно до спонсора з виданими ваучерами)
+    if VoucherRedemption.query.filter_by(redeemed_by_staff_id=staff.id).first():
+        staff.is_active = False
+        db.session.commit()
+        flash(t("admin.staff_delete_blocked", username=username))
+    else:
+        db.session.delete(staff)
+        db.session.commit()
+        flash(t("admin.staff_deleted", username=username))
+
+    return redirect(url_for("sponsor_detail", sponsor_id=sponsor.id))
 
 
 # ---------- АДМІН: РУЛЕТКА (призи колеса за спонсором) ----------
@@ -1111,6 +1281,7 @@ def migrate_voucher_redemption_columns():
     new_columns = {
         "expiry_reminder_sent": "BOOLEAN DEFAULT 0",
         "event_id": "INTEGER",  # ваучер від події (окремо від sponsor_spin_id/spin_prize_id рулетки)
+        "redeemed_by_staff_id": "INTEGER",  # хто погасив: бармен (Staff), окремо від адмінського погашення
     }
     with db.engine.connect() as conn:
         for col_name, col_type in new_columns.items():

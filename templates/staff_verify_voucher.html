@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ t('admin.verify_voucher_title') }}{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('staff_logout') }}">🚪 {{ t('nav.logout') }}</a>
+{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>{{ t('admin.verify_voucher_title') }}</h2>
+    <form method="POST">
+        <label>{{ t('admin.unique_code_label') }}</label>
+        <input type="text" name="unique_code" value="{{ searched_code }}" placeholder="BETFREE-XXXXXX" required>
+        <button class="btn btn-block" type="submit">{{ t('admin.check_btn') }}</button>
+    </form>
+</div>
+
+{% if voucher %}
+<div class="card voucher-card voucher-{{ voucher.badge_status }}">
+    <h3 class="promo-code" style="display:inline-block;">{{ voucher.unique_code }}</h3>
+    <p><strong>{{ t('admin.voucher_user_label') }}</strong> {{ voucher.user.username }}</p>
+    <p><strong>{{ t('admin.voucher_prize_label') }}</strong> {{ voucher.display_label or t('vouchers.generic_voucher_label') }}</p>
+    {% if voucher.event %}
+    <p><strong>{{ t('admin.voucher_source_event') }}</strong> {{ voucher.event.title }}</p>
+    {% endif %}
+    <p><strong>{{ t('vouchers.received_label') }}</strong> {{ voucher.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+    <p><strong>{{ t('vouchers.valid_until_label') }}</strong> {{ voucher.expires_at.strftime('%d.%m.%Y %H:%M') }}</p>
+
+    {% if voucher.is_used %}
+    <span class="voucher-status-badge status-used">{{ t('admin.voucher_used_badge', date=voucher.used_at.strftime('%d.%m.%Y %H:%M') if voucher.used_at else '') }}</span>
+    {% elif voucher.badge_status == 'expired' %}
+    <span class="voucher-status-badge status-expired">{{ t('vouchers.status_expired') }}</span>
+    {% else %}
+    <form method="POST" action="{{ url_for('staff_redeem_voucher', code=voucher.unique_code) }}" style="margin-top:14px;">
+        <button class="btn btn-block" type="submit">{{ t('staff.confirm_redemption_btn') }}</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

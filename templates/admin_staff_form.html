@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ t('admin.edit_staff_title') if staff else t('admin.new_staff_title') }}{% endblock %}
+{% block back_nav %}
+<a class="btn-back" href="{{ url_for('sponsor_detail', sponsor_id=sponsor.id) }}">← {{ t('common.back') }}</a>
+{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>{{ t('admin.edit_staff_title') if staff else t('admin.new_staff_title') }}</h2>
+    <form method="POST" action="{{ url_for('edit_sponsor_staff', sponsor_id=sponsor.id, staff_id=staff.id) if staff else url_for('new_sponsor_staff', sponsor_id=sponsor.id) }}">
+        <label>{{ t('admin.staff_username_label') }}</label>
+        {% if staff %}
+        <input type="text" value="{{ staff.username }}" disabled>
+        {% else %}
+        <input type="text" name="username" required>
+        {% endif %}
+
+        <label>{{ t('admin.staff_password_label') if not staff else t('admin.staff_new_password_label') }}</label>
+        <input type="password" name="password" {{ 'required' if not staff else '' }} autocomplete="new-password">
+
+        <div class="checkbox-row">
+            <input type="checkbox" name="is_active" id="is_active" {{ 'checked' if not staff or staff.is_active else '' }}>
+            <label for="is_active">{{ t('admin.staff_active_label') }}</label>
+        </div>
+
+        <button class="btn" type="submit">{{ t('common.save_changes') if staff else t('admin.add_staff_btn') }}</button>
+    </form>
+</div>
+
+{% if staff %}
+<form method="POST" action="{{ url_for('delete_sponsor_staff', sponsor_id=sponsor.id, staff_id=staff.id) }}"
+      onsubmit='return confirm({{ t("admin.confirm_delete_staff", username=staff.username)|tojson }})'>
+    <button class="btn btn-block" type="submit">{{ t('admin.delete_staff_btn') }}</button>
+</form>
+{% endif %}
+
+{% endblock %}

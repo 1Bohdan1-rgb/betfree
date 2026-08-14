@@ -61,6 +61,12 @@ TRANSLATIONS = {
         "auth.register_success": "Реєстрація успішна, увійдіть",
         "auth.invalid_credentials": "Невірний логін або пароль",
 
+        # ---------- staff (бармени) ----------
+        "staff.login_title": "Вхід для персоналу",
+        "staff.voucher_not_found": "Код не знайдено",
+        "staff.access_denied_wrong_venue": "Цей ваучер не належить вашому закладу",
+        "staff.confirm_redemption_btn": "Підтвердити погашення",
+
         # ---------- профіль ----------
         "profile.title": "Профіль",
         "profile.email_label": "Email:",
@@ -172,6 +178,25 @@ TRANSLATIONS = {
         "admin.prize_added": "Приз додано до спонсора",
         "admin.prize_deleted": "Приз видалено",
         "admin.voucher_dash_percent": "Ваучер -{percent}%",
+
+        # ---------- адмін: staff (персонал спонсора) ----------
+        "admin.staff_title": "Персонал",
+        "admin.no_staff": "Персоналу ще немає",
+        "admin.add_staff_btn": "Додати співробітника",
+        "admin.new_staff_title": "Новий співробітник",
+        "admin.edit_staff_title": "Редагування співробітника",
+        "admin.staff_username_label": "Юзернейм",
+        "admin.staff_password_label": "Пароль",
+        "admin.staff_new_password_label": "Новий пароль (залиште порожнім, щоб не змінювати)",
+        "admin.staff_active_label": "Активний",
+        "admin.staff_created_label": "Створено:",
+        "admin.staff_added": "Співробітника {username} додано",
+        "admin.staff_updated": "Співробітника {username} оновлено",
+        "admin.staff_deleted": "Співробітника {username} видалено",
+        "admin.staff_delete_blocked": "Неможливо видалити {username} — є історія погашених ваучерів. Акаунт деактивовано замість видалення.",
+        "admin.staff_username_taken": "Такий юзернейм вже зайнятий",
+        "admin.confirm_delete_staff": "Видалити співробітника {username}? Цю дію не можна скасувати.",
+        "admin.delete_staff_btn": "Видалити акаунт",
 
         # ---------- рулетка ----------
         "roulette.title": "Рулетка",
@@ -307,6 +332,11 @@ TRANSLATIONS = {
         "auth.register_success": "Registration successful, please log in",
         "auth.invalid_credentials": "Invalid username or password",
 
+        "staff.login_title": "Staff login",
+        "staff.voucher_not_found": "Code not found",
+        "staff.access_denied_wrong_venue": "This voucher does not belong to your venue",
+        "staff.confirm_redemption_btn": "Confirm redemption",
+
         "profile.title": "Profile",
         "profile.email_label": "Email:",
         "profile.country_label": "Country:",
@@ -414,6 +444,24 @@ TRANSLATIONS = {
         "admin.prize_added": "Prize added to sponsor",
         "admin.prize_deleted": "Prize deleted",
         "admin.voucher_dash_percent": "Voucher -{percent}%",
+
+        "admin.staff_title": "Staff",
+        "admin.no_staff": "No staff yet",
+        "admin.add_staff_btn": "Add staff member",
+        "admin.new_staff_title": "New staff member",
+        "admin.edit_staff_title": "Edit staff member",
+        "admin.staff_username_label": "Username",
+        "admin.staff_password_label": "Password",
+        "admin.staff_new_password_label": "New password (leave blank to keep unchanged)",
+        "admin.staff_active_label": "Active",
+        "admin.staff_created_label": "Created:",
+        "admin.staff_added": "Staff member {username} added",
+        "admin.staff_updated": "Staff member {username} updated",
+        "admin.staff_deleted": "Staff member {username} deleted",
+        "admin.staff_delete_blocked": "Cannot delete {username} — there is a history of redeemed vouchers. The account was deactivated instead.",
+        "admin.staff_username_taken": "This username is already taken",
+        "admin.confirm_delete_staff": "Delete staff member {username}? This action cannot be undone.",
+        "admin.delete_staff_btn": "Delete account",
 
         "roulette.title": "Roulette",
         "roulette.sponsor_heading": "Roulette by {sponsor}",
@@ -544,6 +592,11 @@ TRANSLATIONS = {
         "auth.register_success": "Registrierung erfolgreich, bitte melden Sie sich an",
         "auth.invalid_credentials": "Ungültiger Benutzername oder ungültiges Passwort",
 
+        "staff.login_title": "Personal-Anmeldung",
+        "staff.voucher_not_found": "Code nicht gefunden",
+        "staff.access_denied_wrong_venue": "Dieser Gutschein gehört nicht zu Ihrem Standort",
+        "staff.confirm_redemption_btn": "Einlösung bestätigen",
+
         "profile.title": "Profil",
         "profile.email_label": "E-Mail:",
         "profile.country_label": "Land:",
@@ -651,6 +704,24 @@ TRANSLATIONS = {
         "admin.prize_added": "Preis zum Sponsor hinzugefügt",
         "admin.prize_deleted": "Preis gelöscht",
         "admin.voucher_dash_percent": "Gutschein -{percent}%",
+
+        "admin.staff_title": "Personal",
+        "admin.no_staff": "Noch kein Personal",
+        "admin.add_staff_btn": "Mitarbeiter hinzufügen",
+        "admin.new_staff_title": "Neuer Mitarbeiter",
+        "admin.edit_staff_title": "Mitarbeiter bearbeiten",
+        "admin.staff_username_label": "Benutzername",
+        "admin.staff_password_label": "Passwort",
+        "admin.staff_new_password_label": "Neues Passwort (leer lassen, um es nicht zu ändern)",
+        "admin.staff_active_label": "Aktiv",
+        "admin.staff_created_label": "Erstellt:",
+        "admin.staff_added": "Mitarbeiter {username} hinzugefügt",
+        "admin.staff_updated": "Mitarbeiter {username} aktualisiert",
+        "admin.staff_deleted": "Mitarbeiter {username} gelöscht",
+        "admin.staff_delete_blocked": "{username} kann nicht gelöscht werden — es gibt eine Historie eingelöster Gutscheine. Das Konto wurde stattdessen deaktiviert.",
+        "admin.staff_username_taken": "Dieser Benutzername ist bereits vergeben",
+        "admin.confirm_delete_staff": "Mitarbeiter {username} löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "admin.delete_staff_btn": "Konto löschen",
 
         "roulette.title": "Roulette",
         "roulette.sponsor_heading": "Roulette von {sponsor}",

@@ -85,6 +85,36 @@
 </div>
 
 {% if sponsor %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+        <h2 style="margin:0;">{{ t('admin.staff_title') }}</h2>
+        <a class="btn" href="{{ url_for('new_sponsor_staff', sponsor_id=sponsor.id) }}" style="display:inline-flex;">+ {{ t('admin.add_staff_btn') }}</a>
+    </div>
+
+    {% if not sponsor.staff_members %}
+    <p>{{ t('admin.no_staff') }}</p>
+    {% endif %}
+
+    {% for s in sponsor.staff_members|sort(attribute='created_at', reverse=True) %}
+    <div class="admin-user-header" style="padding:10px 0; {% if not loop.first %}border-top:1px solid var(--border);{% endif %}">
+        <div>
+            <strong style="color:#f5f5f5;">{{ s.username }}</strong><br>
+            <span class="event-meta">{{ t('admin.staff_created_label') }} {{ s.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            {% if s.is_active %}
+            <span class="verify-badge verified">🟢 {{ t('common.active') }}</span>
+            {% else %}
+            <span class="verify-badge unverified">⚪ {{ t('common.inactive') }}</span>
+            {% endif %}
+            <a class="icon-link" href="{{ url_for('edit_sponsor_staff', sponsor_id=sponsor.id, staff_id=s.id) }}">✏️</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if sponsor %}
 <form method="POST" action="{{ url_for('toggle_sponsor', sponsor_id=sponsor.id) }}">
     <button class="btn btn-block" type="submit">{{ t('admin.deactivate_btn') if sponsor.is_active else t('admin.activate_btn') }}</button>
 </form>

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ t('staff.login_title') }}{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>{{ t('staff.login_title') }}</h2>
+    <form method="POST">
+        <label>{{ t('auth.username') }}</label>
+        <input type="text" name="username" required>
+        <label>{{ t('auth.password') }}</label>
+        <input type="password" name="password" required>
+        <button class="btn" type="submit">{{ t('auth.login_btn') }}</button>
+    </form>
+</div>
+{% endblock %}
