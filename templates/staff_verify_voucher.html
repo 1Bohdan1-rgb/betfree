@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ t('admin.verify_voucher_title') }}{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('staff_logout') }}">🚪 {{ t('nav.logout') }}</a>
+<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+    <a class="btn-back" href="{{ url_for('staff_logout') }}" style="margin:0;">🚪 {{ t('nav.logout') }}</a>
+    <select class="lang-select" onchange="if (this.value) location.href = this.value;" aria-label="{{ t('nav.language') }}">
+        {% for code, label in LANGUAGES.items() %}
+        <option value="{{ url_for('set_language', lang_code=code) }}" {{ 'selected' if code == current_lang else '' }}>{{ label }}</option>
+        {% endfor %}
+    </select>
+</div>
 {% endblock %}
 {% block content %}
 

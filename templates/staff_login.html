@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ t('staff.login_title') }}{% endblock %}
+{% block back_nav %}
+<div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+    <select class="lang-select" onchange="if (this.value) location.href = this.value;" aria-label="{{ t('nav.language') }}">
+        {% for code, label in LANGUAGES.items() %}
+        <option value="{{ url_for('set_language', lang_code=code) }}" {{ 'selected' if code == current_lang else '' }}>{{ label }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endblock %}
 {% block content %}
 <div class="card">
     <h2>{{ t('staff.login_title') }}</h2>
