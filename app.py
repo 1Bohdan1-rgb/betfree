@@ -698,16 +698,45 @@ def _daily_counts(items, day_getter, days=DASHBOARD_TREND_DAYS):
     return [counts.get(today - timedelta(days=days - 1 - i), 0) for i in range(days)]
 
 
-def _to_svg_points(series, max_v, width=600, height=160, pad_l=6, pad_r=6, pad_t=10, pad_b=10):
-    """Перетворює список чисел у рядок точок SVG <polyline> в межах viewBox,
+DASHBOARD_CHART_W, DASHBOARD_CHART_H = 600, 170
+DASHBOARD_CHART_PAD = (4, 4, 12, 14)  # left, right, top, bottom
+
+
+def _to_xy(series, max_v):
+    """Перетворює список чисел у координати (x, y) в межах viewBox,
     масштабуючи по спільному max_v (щоб дві серії лишались порівнянними)."""
+    pad_l, pad_r, pad_t, pad_b = DASHBOARD_CHART_PAD
+    w, h = DASHBOARD_CHART_W, DASHBOARD_CHART_H
     n = len(series)
     pts = []
     for idx, v in enumerate(series):
-        x = pad_l + (width - pad_l - pad_r) * idx / (n - 1) if n > 1 else pad_l
-        y = height - pad_b - (height - pad_t - pad_b) * (v / max_v)
-        pts.append(f"{x:.1f},{y:.1f}")
-    return " ".join(pts)
+        x = pad_l + (w - pad_l - pad_r) * idx / (n - 1) if n > 1 else pad_l
+        y = h - pad_b - (h - pad_t - pad_b) * (v / max_v)
+        pts.append((x, y))
+    return pts
+
+
+def _smooth_path(points):
+    """Catmull-Rom -> кубічні Безьє (tension=0): плавна крива графіка замість
+    ламаної лінії між точками."""
+    if len(points) < 2:
+        return ""
+    p = [points[0]] + points + [points[-1]]
+    d = f"M {p[1][0]:.1f},{p[1][1]:.1f} "
+    for i in range(1, len(p) - 2):
+        p0, p1, p2, p3 = p[i - 1], p[i], p[i + 1], p[i + 2]
+        c1x, c1y = p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6
+        c2x, c2y = p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6
+        d += f"C {c1x:.1f},{c1y:.1f} {c2x:.1f},{c2y:.1f} {p2[0]:.1f},{p2[1]:.1f} "
+    return d.strip()
+
+
+def _area_path(line_path, points):
+    """Замикає лінію графіка до базової лінії знизу — для градієнтної заливки під кривою."""
+    if not line_path or not points:
+        return ""
+    baseline_y = DASHBOARD_CHART_H - DASHBOARD_CHART_PAD[3]
+    return f"{line_path} L {points[-1][0]:.1f},{baseline_y} L {points[0][0]:.1f},{baseline_y} Z"
 
 
 def _sponsor_dashboard_stats(sponsor):
@@ -768,6 +797,11 @@ def _sponsor_dashboard_stats(sponsor):
     redeemed_series = _daily_counts(redeemed_in_window, lambda v: v.used_at.date())
     shared_max = max(max(issued_series), max(redeemed_series), 1)
 
+    issued_xy = _to_xy(issued_series, shared_max)
+    redeemed_xy = _to_xy(redeemed_series, shared_max)
+    issued_line = _smooth_path(issued_xy)
+    redeemed_line = _smooth_path(redeemed_xy)
+
     return {
         "vouchers_issued_30d": vouchers_issued_30d,
         "vouchers_used": vouchers_used,
@@ -777,8 +811,10 @@ def _sponsor_dashboard_stats(sponsor):
         "bets_placed": bets_placed,
         "total_payouts": round(total_payouts, 2),
         "events_completed": events_completed,
-        "trend_issued_points": _to_svg_points(issued_series, shared_max),
-        "trend_redeemed_points": _to_svg_points(redeemed_series, shared_max),
+        "trend_issued_line": issued_line,
+        "trend_redeemed_line": redeemed_line,
+        "trend_issued_area": _area_path(issued_line, issued_xy),
+        "trend_redeemed_area": _area_path(redeemed_line, redeemed_xy),
     }
 
 

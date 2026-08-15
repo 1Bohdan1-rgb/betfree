@@ -31,7 +31,10 @@
 
 {% if sponsor %}
 <div class="card dashboard-card">
-    <h2>📊 {{ t('admin.dashboard_title') }}</h2>
+    <div class="dashboard-header">
+        <div class="badge-icon">📊</div>
+        <h2>{{ t('admin.dashboard_title') }}</h2>
+    </div>
 
     <div class="stat-grid">
         <div class="stat-card stat-gold">
@@ -81,11 +84,27 @@
         <span><span class="dot" style="background:var(--gold);"></span>{{ t('admin.stat_vouchers_issued_30d') }}</span>
         <span><span class="dot" style="background:var(--green);"></span>{{ t('admin.stat_vouchers_used') }}</span>
     </div>
-    <svg class="trend-svg" viewBox="0 0 600 160" preserveAspectRatio="none">
-        <polyline points="{{ dashboard.trend_issued_points }}"
-                  fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <polyline points="{{ dashboard.trend_redeemed_points }}"
-                  fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <svg class="trend-svg" viewBox="0 0 600 170">
+        <defs>
+            <linearGradient id="trendGoldFade-{{ sponsor.id }}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#d4af37" stop-opacity="0.38"/>
+                <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="trendGreenFade-{{ sponsor.id }}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#3ddc84" stop-opacity="0.32"/>
+                <stop offset="100%" stop-color="#3ddc84" stop-opacity="0"/>
+            </linearGradient>
+        </defs>
+        <g class="trend-grid">
+            <line x1="4" y1="12" x2="596" y2="12"/>
+            <line x1="4" y1="56" x2="596" y2="56"/>
+            <line x1="4" y1="100" x2="596" y2="100"/>
+            <line x1="4" y1="144" x2="596" y2="144"/>
+        </g>
+        <path d="{{ dashboard.trend_issued_area }}" fill="url(#trendGoldFade-{{ sponsor.id }})" stroke="none"/>
+        <path d="{{ dashboard.trend_redeemed_area }}" fill="url(#trendGreenFade-{{ sponsor.id }})" stroke="none"/>
+        <path d="{{ dashboard.trend_issued_line }}" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="{{ dashboard.trend_redeemed_line }}" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round"/>
     </svg>
 </div>
 {% endif %}
