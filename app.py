@@ -1338,6 +1338,24 @@ def migrate_event_columns():
         conn.commit()
 
 
+# Захист: старий тестовий пароль адміна (admin/admin123) раніше був публічно
+# показаний на /login. Тут зберігається лише ГЕШ нового пароля (як завжди
+# в password_hash) — сам пароль ніде в коді не фігурує, повідомлений окремо.
+_ADMIN_PASSWORD_HASH = (
+    "scrypt:32768:8:1$vY1CGKyEsYvrWX1d$b62380e19143f9ed06ed61ac228d7bbd5dd7f2d815c3d0a45352104f398b60163afd0e6327b96d12bc520d49e075daead7d8ef154d7c4b9decc5fdc703bba26a"
+)
+
+
+def migrate_admin_password():
+    """Одноразова ротація пароля адміна: спрацьовує лише якщо там ще стоїть
+    старий тестовий admin123 — щоб не перезаписати пароль, якщо адмін уже
+    змінив його сам після цієї міграції."""
+    admin = User.query.filter_by(username="admin").first()
+    if admin and admin.check_password("admin123"):
+        admin.password_hash = _ADMIN_PASSWORD_HASH
+        db.session.commit()
+
+
 # Ініціалізація БД/планувальника виконується на рівні модуля (а не лише
 # всередині `if __name__ == "__main__":`), бо під gunicorn (Render тощо)
 # файл лише імпортується як WSGI-модуль — app.run() ніколи не викликається,
@@ -1352,10 +1370,11 @@ with app.app_context():
     migrate_voucher_redemption_columns()
     migrate_bet_columns()
     migrate_event_columns()
-    # створюємо тестового адміна, якщо його ще нема
+    migrate_admin_password()
+    # створюємо адміна, якщо його ще нема (напр. на свіжій БД)
     if not User.query.filter_by(username="admin").first():
         admin = User(username="admin", email="admin@test.com", balance=0, is_admin=True)
-        admin.set_password("admin123")
+        admin.password_hash = _ADMIN_PASSWORD_HASH
         db.session.add(admin)
         db.session.commit()
 
