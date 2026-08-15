@@ -133,9 +133,19 @@ class SponsorSpin(db.Model):
     contact_email = db.Column(db.String(120))
     contact_phone = db.Column(db.String(30))
     contact_person_name = db.Column(db.String(120))
+    # бюджет рекламної кампанії рулетки: None = без обмежень (як раніше);
+    # кожен виграний грошовий приз списується з budget_spent, поки бюджет не вичерпається
+    campaign_budget = db.Column(db.Numeric(10, 2), nullable=True)
+    budget_spent = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     prizes = db.relationship("SpinPrize", backref="sponsor", lazy=True, cascade="all, delete-orphan")
+
+    @property
+    def budget_remaining(self):
+        if self.campaign_budget is None:
+            return None
+        return self.campaign_budget - self.budget_spent
 
 
 class SpinPrize(db.Model):

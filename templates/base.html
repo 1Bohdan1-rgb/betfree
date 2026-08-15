@@ -217,6 +217,16 @@
         }
         .dashboard-header h2 { margin: 0; font-size: 19px; }
 
+        /* індикатор бюджету рекламної кампанії рулетки */
+        .budget-bar-card { background: var(--card-bg-alt); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+        .budget-bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; font-size: 12px; }
+        .budget-bar-label { color: var(--text-muted); font-weight: 700; }
+        .budget-bar-value { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+        .budget-bar-track { height: 8px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+        .budget-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--gold-dark), var(--gold)); transition: width .4s ease; }
+        .budget-bar-card.budget-bar-warn .budget-bar-fill { background: linear-gradient(90deg, #b5462f, #e0684a); }
+        .budget-bar-card.budget-bar-warn .budget-bar-value { color: #e0684a; }
+
         /* hero: головна метрика (сума виплат) + спарклайн */
         .hero-stat {
             background: linear-gradient(155deg, #23385c 0%, #121f38 70%);

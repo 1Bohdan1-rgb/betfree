@@ -30,11 +30,15 @@
         </div>
     </div>
 
-    <button class="btn btn-block btn-spin" type="button" id="spin-btn" {{ "disabled" if not can_spin else "" }}>{{ t('roulette.spin_btn') }}</button>
+    <button class="btn btn-block btn-spin" type="button" id="spin-btn" {{ "disabled" if (not can_spin or budget_exhausted) else "" }}>{{ t('roulette.spin_btn') }}</button>
 
+    {% if budget_exhausted %}
+    <p class="event-meta" style="justify-content:center; margin-top:10px;">🚫 {{ t('roulette.budget_exhausted') }}</p>
+    {% else %}
     <p class="event-meta" id="cooldown-row" style="justify-content:center; margin-top:10px; {{ '' if not can_spin else 'display:none;' }}">
         {{ t('roulette.next_attempt') }} <strong id="countdown" data-next="{{ (next_available_at.isoformat() ~ 'Z') if next_available_at else '' }}">--:--:--</strong>
     </p>
+    {% endif %}
 
     <div class="spin-result" id="spin-result" style="display:none;">
         <div class="spin-amount" id="spin-amount"></div>
@@ -81,7 +85,9 @@
     let countdownTimer = null;
 
     function startCountdown(isoString) {
-        if (!isoString) return;
+        // cooldown-row/countdown відсутні в DOM, коли бюджет кампанії вичерпано
+        // (шаблон показує повідомлення про бюджет замість таймера)
+        if (!isoString || !countdownEl || !cooldownRow) return;
         countdownEl.dataset.next = isoString;
         cooldownRow.style.display = "";
         const target = new Date(isoString).getTime();
@@ -107,7 +113,7 @@
         tick();
     }
 
-    if (countdownEl.dataset.next) {
+    if (countdownEl && countdownEl.dataset.next) {
         startCountdown(countdownEl.dataset.next);
     }
 

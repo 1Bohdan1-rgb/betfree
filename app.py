@@ -1,6 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta, date
+from decimal import Decimal
 from sqlalchemy import inspect, text
 from functools import wraps
 from urllib.parse import urlparse
@@ -83,6 +84,53 @@ def get_wheel_sectors(sponsor):
     amounts = get_spin_sectors_from_range(sponsor)
     sectors = [{"type": "coins", "label": f"🪙 {v}", "full_label": f"🪙 {v}", "amount": v} for v in amounts]
     return sectors, SPIN_SECTOR_WEIGHTS
+
+
+def _sponsor_budget_exhausted(sponsor):
+    """campaign_budget=None -> без обмежень (стара поведінка). Інакше — вичерпано,
+    якщо залишок <= 0."""
+    if sponsor is None or sponsor.campaign_budget is None:
+        return False
+    return (sponsor.campaign_budget - sponsor.budget_spent) <= 0
+
+
+def _spend_campaign_budget(sponsor, reward):
+    """Атомарно списує reward (монети) з бюджету кампанії спонсора, якщо він
+    заданий. Повертає фактично нараховану суму (float) — може бути менше
+    reward, якщо залишку бюджету не вистачає на повну суму. None-бюджет ->
+    без обмежень, повертає reward як є.
+
+    Той самий атомарний UPDATE-підхід, що й у /admin/verify-voucher: спершу
+    одна умовна спроба списати повну суму (без TOCTOU-вікна). Якщо бюджету не
+    вистачає — окрема спроба списати рівно залишок через optimistic-lock
+    (WHERE budget_spent = <прочитане значення>), з невеликим retry на випадок
+    одночасного спіну."""
+    if sponsor is None or sponsor.campaign_budget is None:
+        return reward
+
+    reward_dec = Decimal(str(reward))
+
+    updated_rows = SponsorSpin.query.filter(
+        SponsorSpin.id == sponsor.id,
+        (SponsorSpin.campaign_budget - SponsorSpin.budget_spent) >= reward_dec,
+    ).update({SponsorSpin.budget_spent: SponsorSpin.budget_spent + reward_dec})
+    if updated_rows:
+        return reward
+
+    for _ in range(3):
+        row = db.session.execute(
+            db.select(SponsorSpin.campaign_budget, SponsorSpin.budget_spent).where(SponsorSpin.id == sponsor.id)
+        ).first()
+        remaining = row.campaign_budget - row.budget_spent
+        if remaining <= 0:
+            return 0.0
+        updated_rows = SponsorSpin.query.filter(
+            SponsorSpin.id == sponsor.id,
+            SponsorSpin.budget_spent == row.budget_spent,
+        ).update({SponsorSpin.budget_spent: row.budget_spent + remaining})
+        if updated_rows:
+            return float(remaining)
+    return 0.0  # висока конкуренція за 3 спроби — безпечніше нічого не нарахувати, ніж перевищити бюджет
 
 
 def _sector_point(angle_deg):
@@ -589,6 +637,8 @@ def roulette():
     if request.method == "POST":
         if not can_spin:
             return jsonify(ok=False, message=t("roulette.not_available")), 400
+        if _sponsor_budget_exhausted(sponsor):
+            return jsonify(ok=False, message=t("roulette.budget_exhausted")), 400
 
         # той самий (перемішаний) порядок секторів, що бачив користувач на сторінці,
         # інакше sector_index не відповідатиме тому, що намальовано на колесі
@@ -620,7 +670,9 @@ def roulette():
                 voucher_expires=voucher.expires_at.strftime("%d.%m.%Y"),
             )
         else:
-            reward = chosen["amount"]
+            # ваучери не списуються з бюджету кампанії — лише монети;
+            # якщо залишку бюджету не вистачає на повну суму, виграш обмежується ним
+            reward = _spend_campaign_budget(sponsor, chosen["amount"])
             current_user.balance += reward
             result = dict(prize_type="coins", amount=reward)
 
@@ -654,6 +706,7 @@ def roulette():
         sectors=sectors,
         can_spin=can_spin,
         next_available_at=next_available_at,
+        budget_exhausted=_sponsor_budget_exhausted(sponsor),
     )
 
 
@@ -824,6 +877,13 @@ def _sponsor_dashboard_stats(sponsor):
     spark_xy = _to_xy(issued_series, spark_max, dims=DASHBOARD_SPARK_DIMS)
     spark_line = _smooth_path(spark_xy)
 
+    budget_percent = None
+    if sponsor.campaign_budget is not None:
+        if sponsor.campaign_budget > 0:
+            budget_percent = float(min(sponsor.budget_spent / sponsor.campaign_budget, Decimal("1")) * 100)
+        else:
+            budget_percent = 100.0
+
     return {
         "vouchers_issued_30d": vouchers_issued_30d,
         "vouchers_used": vouchers_used,
@@ -839,6 +899,7 @@ def _sponsor_dashboard_stats(sponsor):
         "trend_redeemed_area": _area_path(redeemed_line, redeemed_xy),
         "spark_line": spark_line,
         "spark_area": _area_path(spark_line, spark_xy, dims=DASHBOARD_SPARK_DIMS),
+        "budget_percent": budget_percent,
     }
 
 
@@ -868,6 +929,8 @@ def create_sponsor():
     min_reward = float(request.form["min_reward"])
     max_reward = float(request.form["max_reward"])
     voucher_validity_days = int(request.form.get("voucher_validity_days") or 7)
+    campaign_budget_raw = request.form.get("campaign_budget", "").strip()
+    campaign_budget = Decimal(campaign_budget_raw) if campaign_budget_raw else None
     extra = _optional_form_fields(*SPONSOR_OPTIONAL_FIELDS)
 
     if min_reward > max_reward:
@@ -879,6 +942,7 @@ def create_sponsor():
         min_reward=min_reward,
         max_reward=max_reward,
         voucher_validity_days=voucher_validity_days,
+        campaign_budget=campaign_budget,
         **extra,
     )
     db.session.add(sponsor)
@@ -901,6 +965,9 @@ def edit_sponsor(sponsor_id):
     if min_reward > max_reward:
         flash(t("admin.min_max_error"))
         return redirect(url_for("sponsor_detail", sponsor_id=sponsor_id))
+
+    campaign_budget_raw = request.form.get("campaign_budget", "").strip()
+    sponsor.campaign_budget = Decimal(campaign_budget_raw) if campaign_budget_raw else None
 
     sponsor.sponsor_name = request.form["sponsor_name"].strip()
     sponsor.min_reward = min_reward
@@ -1418,6 +1485,8 @@ def migrate_sponsor_spin_columns():
         "contact_email": "VARCHAR(120)",
         "contact_phone": "VARCHAR(30)",
         "contact_person_name": "VARCHAR(120)",
+        "campaign_budget": "NUMERIC(10,2)",
+        "budget_spent": "NUMERIC(10,2) DEFAULT 0",
     }
     with db.engine.connect() as conn:
         for col_name, col_type in new_columns.items():
