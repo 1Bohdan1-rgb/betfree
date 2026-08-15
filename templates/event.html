@@ -18,7 +18,7 @@
 <meta property="og:url" content="{{ url_for('view_event', event_id=event.id, _external=True) }}">
 {% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('public_events') }}">← {{ t('common.back') }}</a>
+<a class="btn-back" href="{{ url_for('roulette') if current_user.is_authenticated else url_for('public_events') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 
