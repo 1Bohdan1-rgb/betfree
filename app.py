@@ -698,15 +698,17 @@ def _daily_counts(items, day_getter, days=DASHBOARD_TREND_DAYS):
     return [counts.get(today - timedelta(days=days - 1 - i), 0) for i in range(days)]
 
 
-DASHBOARD_CHART_W, DASHBOARD_CHART_H = 600, 170
-DASHBOARD_CHART_PAD = (4, 4, 12, 14)  # left, right, top, bottom
+# основний графік "Динаміка за 30 днів" та маленький спарклайн у hero-блоці
+# використовують ту саму логіку побудови кривої, лише з різними розмірами viewBox
+DASHBOARD_CHART_DIMS = {"w": 600, "h": 110, "pad": (4, 4, 8, 10)}  # left, right, top, bottom
+DASHBOARD_SPARK_DIMS = {"w": 300, "h": 46, "pad": (2, 2, 4, 4)}
 
 
-def _to_xy(series, max_v):
+def _to_xy(series, max_v, dims=DASHBOARD_CHART_DIMS):
     """Перетворює список чисел у координати (x, y) в межах viewBox,
     масштабуючи по спільному max_v (щоб дві серії лишались порівнянними)."""
-    pad_l, pad_r, pad_t, pad_b = DASHBOARD_CHART_PAD
-    w, h = DASHBOARD_CHART_W, DASHBOARD_CHART_H
+    pad_l, pad_r, pad_t, pad_b = dims["pad"]
+    w, h = dims["w"], dims["h"]
     n = len(series)
     pts = []
     for idx, v in enumerate(series):
@@ -731,11 +733,11 @@ def _smooth_path(points):
     return d.strip()
 
 
-def _area_path(line_path, points):
+def _area_path(line_path, points, dims=DASHBOARD_CHART_DIMS):
     """Замикає лінію графіка до базової лінії знизу — для градієнтної заливки під кривою."""
     if not line_path or not points:
         return ""
-    baseline_y = DASHBOARD_CHART_H - DASHBOARD_CHART_PAD[3]
+    baseline_y = dims["h"] - dims["pad"][3]
     return f"{line_path} L {points[-1][0]:.1f},{baseline_y} L {points[0][0]:.1f},{baseline_y} Z"
 
 
@@ -802,6 +804,11 @@ def _sponsor_dashboard_stats(sponsor):
     issued_line = _smooth_path(issued_xy)
     redeemed_line = _smooth_path(redeemed_xy)
 
+    # спарклайн у hero-блоці: та сама серія "видано", але окремий (менший) viewBox і масштаб лише по ній
+    spark_max = max(max(issued_series), 1)
+    spark_xy = _to_xy(issued_series, spark_max, dims=DASHBOARD_SPARK_DIMS)
+    spark_line = _smooth_path(spark_xy)
+
     return {
         "vouchers_issued_30d": vouchers_issued_30d,
         "vouchers_used": vouchers_used,
@@ -815,6 +822,8 @@ def _sponsor_dashboard_stats(sponsor):
         "trend_redeemed_line": redeemed_line,
         "trend_issued_area": _area_path(issued_line, issued_xy),
         "trend_redeemed_area": _area_path(redeemed_line, redeemed_xy),
+        "spark_line": spark_line,
+        "spark_area": _area_path(spark_line, spark_xy, dims=DASHBOARD_SPARK_DIMS),
     }
 
 

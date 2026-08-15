@@ -36,46 +36,65 @@
         <h2>{{ t('admin.dashboard_title') }}</h2>
     </div>
 
-    <div class="stat-grid">
-        <div class="stat-card stat-gold">
-            <div class="stat-icon">🎟️</div>
-            <div class="stat-value" data-count-to="{{ dashboard.vouchers_issued_30d }}">0</div>
-            <div class="stat-label">{{ t('admin.stat_vouchers_issued_30d') }}</div>
+    <div class="hero-stat">
+        <div class="hero-top">
+            <div class="hero-icon">💰</div>
+            <div>
+                <div class="hero-value" data-count-to="{{ dashboard.total_payouts }}" data-count-suffix=" {{ t('common.coins_word') }}">0</div>
+                <div class="hero-label">{{ t('admin.stat_total_payouts') }}</div>
+            </div>
         </div>
-        <div class="stat-card stat-green">
-            <div class="stat-icon">✅</div>
-            <div class="stat-value" data-count-to="{{ dashboard.vouchers_used }}">0</div>
-            <div class="stat-label">{{ t('admin.stat_vouchers_used') }}</div>
+        <svg class="spark-svg" viewBox="0 0 300 46" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="sparkFade-{{ sponsor.id }}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#d4af37" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+            <path d="{{ dashboard.spark_area }}" fill="url(#sparkFade-{{ sponsor.id }})" stroke="none"/>
+            <path d="{{ dashboard.spark_line }}" fill="none" stroke="#d4af37" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <p class="spark-caption">{{ t('admin.spark_caption') }}</p>
+    </div>
+
+    <div class="mid-grid">
+        <div class="mid-card stat-gold">
+            <div class="mid-icon">🎟️</div>
+            <div class="mid-value" data-count-to="{{ dashboard.vouchers_issued_30d }}">0</div>
+            <div class="mid-label">{{ t('admin.stat_issued_short') }}</div>
         </div>
-        <div class="stat-card stat-green">
-            <div class="stat-icon">🟢</div>
-            <div class="stat-value" data-count-to="{{ dashboard.vouchers_active }}">0</div>
-            <div class="stat-label">{{ t('admin.stat_vouchers_active') }}</div>
+        <div class="mid-card stat-green">
+            <div class="mid-icon">✅</div>
+            <div class="mid-value" data-count-to="{{ dashboard.vouchers_used }}">0</div>
+            <div class="mid-label">{{ t('admin.stat_vouchers_used') }}</div>
         </div>
-        <div class="stat-card stat-muted">
-            <div class="stat-icon">⌛</div>
-            <div class="stat-value" data-count-to="{{ dashboard.vouchers_expired }}">0</div>
-            <div class="stat-label">{{ t('admin.stat_vouchers_expired') }}</div>
+        <div class="mid-card stat-gold">
+            <div class="mid-icon">👥</div>
+            <div class="mid-value" data-count-to="{{ dashboard.unique_participants }}">0</div>
+            <div class="mid-label">{{ t('admin.stat_participants_short') }}</div>
         </div>
-        <div class="stat-card stat-gold">
-            <div class="stat-icon">👥</div>
-            <div class="stat-value" data-count-to="{{ dashboard.unique_participants }}">0</div>
-            <div class="stat-label">{{ t('admin.stat_unique_participants') }}</div>
+    </div>
+
+    <div class="badge-row">
+        <div class="mini-badge badge-green">
+            <span class="mini-icon">🟢</span>
+            <span class="mini-value" data-count-to="{{ dashboard.vouchers_active }}">0</span>
+            <span class="mini-label">{{ t('admin.stat_vouchers_active') }}</span>
         </div>
-        <div class="stat-card stat-muted">
-            <div class="stat-icon">🗳️</div>
-            <div class="stat-value" data-count-to="{{ dashboard.bets_placed }}">0</div>
-            <div class="stat-label">{{ t('admin.stat_bets_placed') }}</div>
+        <div class="mini-badge">
+            <span class="mini-icon">⌛</span>
+            <span class="mini-value" data-count-to="{{ dashboard.vouchers_expired }}">0</span>
+            <span class="mini-label">{{ t('admin.stat_expired_short') }}</span>
         </div>
-        <div class="stat-card stat-gold">
-            <div class="stat-icon">💰</div>
-            <div class="stat-value" data-count-to="{{ dashboard.total_payouts }}" data-count-suffix=" {{ t('common.coins_word') }}">0</div>
-            <div class="stat-label">{{ t('admin.stat_total_payouts') }}</div>
+        <div class="mini-badge">
+            <span class="mini-icon">🗳️</span>
+            <span class="mini-value" data-count-to="{{ dashboard.bets_placed }}">0</span>
+            <span class="mini-label">{{ t('admin.stat_bets_short') }}</span>
         </div>
-        <div class="stat-card stat-green">
-            <div class="stat-icon">🏁</div>
-            <div class="stat-value" data-count-to="{{ dashboard.events_completed }}">0</div>
-            <div class="stat-label">{{ t('admin.stat_events_completed') }}</div>
+        <div class="mini-badge badge-green">
+            <span class="mini-icon">🏁</span>
+            <span class="mini-value" data-count-to="{{ dashboard.events_completed }}">0</span>
+            <span class="mini-label">{{ t('admin.stat_completed_short') }}</span>
         </div>
     </div>
 
@@ -84,27 +103,26 @@
         <span><span class="dot" style="background:var(--gold);"></span>{{ t('admin.stat_vouchers_issued_30d') }}</span>
         <span><span class="dot" style="background:var(--green);"></span>{{ t('admin.stat_vouchers_used') }}</span>
     </div>
-    <svg class="trend-svg" viewBox="0 0 600 170">
+    <svg class="trend-svg" viewBox="0 0 600 110">
         <defs>
             <linearGradient id="trendGoldFade-{{ sponsor.id }}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#d4af37" stop-opacity="0.38"/>
+                <stop offset="0%" stop-color="#d4af37" stop-opacity="0.35"/>
                 <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
             </linearGradient>
             <linearGradient id="trendGreenFade-{{ sponsor.id }}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#3ddc84" stop-opacity="0.32"/>
+                <stop offset="0%" stop-color="#3ddc84" stop-opacity="0.30"/>
                 <stop offset="100%" stop-color="#3ddc84" stop-opacity="0"/>
             </linearGradient>
         </defs>
         <g class="trend-grid">
-            <line x1="4" y1="12" x2="596" y2="12"/>
-            <line x1="4" y1="56" x2="596" y2="56"/>
+            <line x1="4" y1="8" x2="596" y2="8"/>
+            <line x1="4" y1="54" x2="596" y2="54"/>
             <line x1="4" y1="100" x2="596" y2="100"/>
-            <line x1="4" y1="144" x2="596" y2="144"/>
         </g>
         <path d="{{ dashboard.trend_issued_area }}" fill="url(#trendGoldFade-{{ sponsor.id }})" stroke="none"/>
         <path d="{{ dashboard.trend_redeemed_area }}" fill="url(#trendGreenFade-{{ sponsor.id }})" stroke="none"/>
-        <path d="{{ dashboard.trend_issued_line }}" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="{{ dashboard.trend_redeemed_line }}" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="{{ dashboard.trend_issued_line }}" fill="none" stroke="#d4af37" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="{{ dashboard.trend_redeemed_line }}" fill="none" stroke="#3ddc84" stroke-width="2.2" stroke-linecap="round"/>
     </svg>
 </div>
 {% endif %}
@@ -210,7 +228,7 @@
 {% endblock %}
 {% block scripts %}
 <script>
-document.querySelectorAll('.stat-value[data-count-to]').forEach(function (el) {
+document.querySelectorAll('[data-count-to]').forEach(function (el) {
     var target = parseFloat(el.dataset.countTo);
     var isFloat = target % 1 !== 0;
     var suffix = el.dataset.countSuffix || '';

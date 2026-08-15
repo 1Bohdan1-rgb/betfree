@@ -208,6 +208,12 @@ TRANSLATIONS = {
         "admin.stat_total_payouts": "Сума виплат",
         "admin.stat_events_completed": "Завершених подій",
         "admin.trend_chart_title": "Динаміка ваучерів за 30 днів",
+        "admin.spark_caption": "Тренд видачі ваучерів · 30 днів",
+        "admin.stat_issued_short": "Видано (30д)",
+        "admin.stat_participants_short": "Учасників",
+        "admin.stat_expired_short": "Прострочено",
+        "admin.stat_bets_short": "Ставок",
+        "admin.stat_completed_short": "Завершено",
 
         # ---------- рулетка ----------
         "roulette.title": "Рулетка",
@@ -483,6 +489,12 @@ TRANSLATIONS = {
         "admin.stat_total_payouts": "Total payouts",
         "admin.stat_events_completed": "Events completed",
         "admin.trend_chart_title": "Voucher activity over the last 30 days",
+        "admin.spark_caption": "Vouchers issued trend · 30 days",
+        "admin.stat_issued_short": "Issued (30d)",
+        "admin.stat_participants_short": "Participants",
+        "admin.stat_expired_short": "Expired",
+        "admin.stat_bets_short": "Bets",
+        "admin.stat_completed_short": "Completed",
 
         "roulette.title": "Roulette",
         "roulette.sponsor_heading": "Roulette by {sponsor}",
@@ -753,6 +765,12 @@ TRANSLATIONS = {
         "admin.stat_total_payouts": "Gesamtauszahlungen",
         "admin.stat_events_completed": "Abgeschlossene Events",
         "admin.trend_chart_title": "Gutschein-Aktivität der letzten 30 Tage",
+        "admin.spark_caption": "Ausgabetrend der Gutscheine · 30 Tage",
+        "admin.stat_issued_short": "Ausgegeben (30T)",
+        "admin.stat_participants_short": "Teilnehmer",
+        "admin.stat_expired_short": "Abgelaufen",
+        "admin.stat_bets_short": "Tipps",
+        "admin.stat_completed_short": "Abgeschlossen",
 
         "roulette.title": "Roulette",
         "roulette.sponsor_heading": "Roulette von {sponsor}",
