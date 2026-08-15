@@ -683,6 +683,105 @@ def new_sponsor():
     return render_template("admin_sponsor_detail.html", sponsor=None, event_count=0)
 
 
+DASHBOARD_TREND_DAYS = 30
+
+
+def _daily_counts(items, day_getter, days=DASHBOARD_TREND_DAYS):
+    """Рахує items по днях за останні `days` днів (найстаріший день перший,
+    дні без подій -> 0). day_getter дістає date() з кожного item."""
+    counts = {}
+    for item in items:
+        d = day_getter(item)
+        if d:
+            counts[d] = counts.get(d, 0) + 1
+    today = date.today()
+    return [counts.get(today - timedelta(days=days - 1 - i), 0) for i in range(days)]
+
+
+def _to_svg_points(series, max_v, width=600, height=160, pad_l=6, pad_r=6, pad_t=10, pad_b=10):
+    """Перетворює список чисел у рядок точок SVG <polyline> в межах viewBox,
+    масштабуючи по спільному max_v (щоб дві серії лишались порівнянними)."""
+    n = len(series)
+    pts = []
+    for idx, v in enumerate(series):
+        x = pad_l + (width - pad_l - pad_r) * idx / (n - 1) if n > 1 else pad_l
+        y = height - pad_b - (height - pad_t - pad_b) * (v / max_v)
+        pts.append(f"{x:.1f},{y:.1f}")
+    return " ".join(pts)
+
+
+def _sponsor_dashboard_stats(sponsor):
+    """Агрегує метрики дашборду спонсора з наявних моделей (VoucherRedemption,
+    Event, Bet, Payout), відфільтровані по sponsor.id. Тільки читання, без
+    нових таблиць."""
+    now = datetime.utcnow()
+    window_start = now - timedelta(days=DASHBOARD_TREND_DAYS)
+
+    vouchers_issued_30d = VoucherRedemption.query.filter(
+        VoucherRedemption.sponsor_spin_id == sponsor.id,
+        VoucherRedemption.created_at >= window_start,
+    ).count()
+    vouchers_used = VoucherRedemption.query.filter(
+        VoucherRedemption.sponsor_spin_id == sponsor.id,
+        VoucherRedemption.is_used.is_(True),
+    ).count()
+    vouchers_active = VoucherRedemption.query.filter(
+        VoucherRedemption.sponsor_spin_id == sponsor.id,
+        VoucherRedemption.is_used.is_(False),
+        VoucherRedemption.expires_at > now,
+    ).count()
+    vouchers_expired = VoucherRedemption.query.filter(
+        VoucherRedemption.sponsor_spin_id == sponsor.id,
+        VoucherRedemption.is_used.is_(False),
+        VoucherRedemption.expires_at <= now,
+    ).count()
+
+    sponsor_event_ids = db.session.query(Event.id).filter(Event.sponsor_spin_id == sponsor.id)
+    unique_participants = (
+        db.session.query(db.func.count(db.func.distinct(Bet.user_id)))
+        .filter(Bet.event_id.in_(sponsor_event_ids))
+        .scalar()
+        or 0
+    )
+    bets_placed = Bet.query.filter(Bet.event_id.in_(sponsor_event_ids)).count()
+
+    total_payouts = (
+        db.session.query(db.func.coalesce(db.func.sum(Payout.amount), 0.0))
+        .filter(Payout.event_id.in_(sponsor_event_ids))
+        .scalar()
+        or 0.0
+    )
+    events_completed = Event.query.filter(
+        Event.sponsor_spin_id == sponsor.id, Event.status == "settled"
+    ).count()
+
+    issued_in_window = VoucherRedemption.query.filter(
+        VoucherRedemption.sponsor_spin_id == sponsor.id,
+        VoucherRedemption.created_at >= window_start,
+    ).all()
+    redeemed_in_window = VoucherRedemption.query.filter(
+        VoucherRedemption.sponsor_spin_id == sponsor.id,
+        VoucherRedemption.is_used.is_(True),
+        VoucherRedemption.used_at >= window_start,
+    ).all()
+    issued_series = _daily_counts(issued_in_window, lambda v: v.created_at.date())
+    redeemed_series = _daily_counts(redeemed_in_window, lambda v: v.used_at.date())
+    shared_max = max(max(issued_series), max(redeemed_series), 1)
+
+    return {
+        "vouchers_issued_30d": vouchers_issued_30d,
+        "vouchers_used": vouchers_used,
+        "vouchers_active": vouchers_active,
+        "vouchers_expired": vouchers_expired,
+        "unique_participants": unique_participants,
+        "bets_placed": bets_placed,
+        "total_payouts": round(total_payouts, 2),
+        "events_completed": events_completed,
+        "trend_issued_points": _to_svg_points(issued_series, shared_max),
+        "trend_redeemed_points": _to_svg_points(redeemed_series, shared_max),
+    }
+
+
 @app.route("/admin/sponsors/<int:sponsor_id>")
 @login_required
 def sponsor_detail(sponsor_id):
@@ -692,7 +791,10 @@ def sponsor_detail(sponsor_id):
 
     sponsor = SponsorSpin.query.get_or_404(sponsor_id)
     event_count = Event.query.filter_by(sponsor_spin_id=sponsor.id).count()
-    return render_template("admin_sponsor_detail.html", sponsor=sponsor, event_count=event_count)
+    dashboard = _sponsor_dashboard_stats(sponsor)
+    return render_template(
+        "admin_sponsor_detail.html", sponsor=sponsor, event_count=event_count, dashboard=dashboard
+    )
 
 
 @app.route("/admin/sponsors", methods=["POST"])

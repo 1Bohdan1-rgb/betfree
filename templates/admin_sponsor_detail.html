@@ -29,6 +29,67 @@
 </div>
 {% endif %}
 
+{% if sponsor %}
+<div class="card dashboard-card">
+    <h2>📊 {{ t('admin.dashboard_title') }}</h2>
+
+    <div class="stat-grid">
+        <div class="stat-card stat-gold">
+            <div class="stat-icon">🎟️</div>
+            <div class="stat-value" data-count-to="{{ dashboard.vouchers_issued_30d }}">0</div>
+            <div class="stat-label">{{ t('admin.stat_vouchers_issued_30d') }}</div>
+        </div>
+        <div class="stat-card stat-green">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value" data-count-to="{{ dashboard.vouchers_used }}">0</div>
+            <div class="stat-label">{{ t('admin.stat_vouchers_used') }}</div>
+        </div>
+        <div class="stat-card stat-green">
+            <div class="stat-icon">🟢</div>
+            <div class="stat-value" data-count-to="{{ dashboard.vouchers_active }}">0</div>
+            <div class="stat-label">{{ t('admin.stat_vouchers_active') }}</div>
+        </div>
+        <div class="stat-card stat-muted">
+            <div class="stat-icon">⌛</div>
+            <div class="stat-value" data-count-to="{{ dashboard.vouchers_expired }}">0</div>
+            <div class="stat-label">{{ t('admin.stat_vouchers_expired') }}</div>
+        </div>
+        <div class="stat-card stat-gold">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" data-count-to="{{ dashboard.unique_participants }}">0</div>
+            <div class="stat-label">{{ t('admin.stat_unique_participants') }}</div>
+        </div>
+        <div class="stat-card stat-muted">
+            <div class="stat-icon">🗳️</div>
+            <div class="stat-value" data-count-to="{{ dashboard.bets_placed }}">0</div>
+            <div class="stat-label">{{ t('admin.stat_bets_placed') }}</div>
+        </div>
+        <div class="stat-card stat-gold">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value" data-count-to="{{ dashboard.total_payouts }}" data-count-suffix=" {{ t('common.coins_word') }}">0</div>
+            <div class="stat-label">{{ t('admin.stat_total_payouts') }}</div>
+        </div>
+        <div class="stat-card stat-green">
+            <div class="stat-icon">🏁</div>
+            <div class="stat-value" data-count-to="{{ dashboard.events_completed }}">0</div>
+            <div class="stat-label">{{ t('admin.stat_events_completed') }}</div>
+        </div>
+    </div>
+
+    <p class="trend-heading">{{ t('admin.trend_chart_title') }}</p>
+    <div class="trend-legend">
+        <span><span class="dot" style="background:var(--gold);"></span>{{ t('admin.stat_vouchers_issued_30d') }}</span>
+        <span><span class="dot" style="background:var(--green);"></span>{{ t('admin.stat_vouchers_used') }}</span>
+    </div>
+    <svg class="trend-svg" viewBox="0 0 600 160" preserveAspectRatio="none">
+        <polyline points="{{ dashboard.trend_issued_points }}"
+                  fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="{{ dashboard.trend_redeemed_points }}"
+                  fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+</div>
+{% endif %}
+
 <div class="card">
     <h2>{{ t('admin.edit_sponsor_link') if sponsor else t('admin.new_sponsor_title') }}</h2>
     <form method="POST" action="{{ url_for('edit_sponsor', sponsor_id=sponsor.id) if sponsor else url_for('create_sponsor') }}">
@@ -127,4 +188,23 @@
 <a class="btn-back" href="{{ url_for('admin_roulette') }}" style="margin:14px 0 0;">🎰 {{ t('admin.manage_prizes_link') }}</a>
 {% endif %}
 
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.stat-value[data-count-to]').forEach(function (el) {
+    var target = parseFloat(el.dataset.countTo);
+    var isFloat = target % 1 !== 0;
+    var suffix = el.dataset.countSuffix || '';
+    var duration = 900;
+    var start = performance.now();
+    function tick(now) {
+        var p = Math.min((now - start) / duration, 1);
+        var eased = 1 - Math.pow(1 - p, 3);
+        var value = target * eased;
+        el.textContent = (isFloat ? value.toFixed(2) : Math.round(value).toLocaleString('uk-UA')) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+});
+</script>
 {% endblock %}

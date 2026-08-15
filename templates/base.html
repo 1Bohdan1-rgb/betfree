@@ -205,6 +205,34 @@
         /* банер нагадування про ваучер, що спливає */
         .voucher-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: rgba(255, 200, 87, 0.12); color: #ffd873; border: 1px solid rgba(255, 200, 87, 0.4); padding: 12px 14px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
         .voucher-banner a { color: #ffd873; text-decoration: underline; font-weight: 700; white-space: nowrap; }
+
+        /* дашборд спонсора: картки-метрики + графік динаміки ваучерів */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 4px 0 22px; }
+        .stat-card { background: var(--card-bg-alt); border: 1px solid var(--border); border-radius: 12px; padding: 16px; opacity: 0; transform: translateY(8px); animation: stat-in .45s ease forwards; }
+        .stat-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; margin-bottom: 12px; }
+        .stat-gold .stat-icon { background: var(--gold-soft); }
+        .stat-green .stat-icon { background: rgba(61, 220, 132, 0.16); }
+        .stat-muted .stat-icon { background: rgba(159, 176, 201, 0.12); }
+        .stat-value { font-size: 28px; font-weight: 800; line-height: 1.1; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+        .stat-gold .stat-value { color: var(--gold); }
+        .stat-green .stat-value { color: var(--green); }
+        .stat-muted .stat-value { color: var(--text-muted); }
+        .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+        @keyframes stat-in { to { opacity: 1; transform: translateY(0); } }
+        .stat-card:nth-child(1) { animation-delay: .02s; }
+        .stat-card:nth-child(2) { animation-delay: .06s; }
+        .stat-card:nth-child(3) { animation-delay: .10s; }
+        .stat-card:nth-child(4) { animation-delay: .14s; }
+        .stat-card:nth-child(5) { animation-delay: .18s; }
+        .stat-card:nth-child(6) { animation-delay: .22s; }
+        .stat-card:nth-child(7) { animation-delay: .26s; }
+        .stat-card:nth-child(8) { animation-delay: .30s; }
+
+        .trend-heading { font-size: 13px; color: var(--text-muted); font-weight: 700; margin: 4px 0 10px; }
+        .trend-legend { display: flex; gap: 16px; font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+        .trend-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .trend-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .trend-svg { width: 100%; height: auto; display: block; }
     </style>
 </head>
 <body>

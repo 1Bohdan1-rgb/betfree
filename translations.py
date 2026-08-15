@@ -197,6 +197,18 @@ TRANSLATIONS = {
         "admin.confirm_delete_staff": "Видалити співробітника {username}? Цю дію не можна скасувати.",
         "admin.delete_staff_btn": "Видалити акаунт",
 
+        # ---------- адмін: дашборд спонсора ----------
+        "admin.dashboard_title": "Дашборд",
+        "admin.stat_vouchers_issued_30d": "Видано ваучерів (30 днів)",
+        "admin.stat_vouchers_used": "Погашено",
+        "admin.stat_vouchers_active": "Активні",
+        "admin.stat_vouchers_expired": "Протерміновані",
+        "admin.stat_unique_participants": "Унікальних учасників",
+        "admin.stat_bets_placed": "Ставок зроблено",
+        "admin.stat_total_payouts": "Сума виплат",
+        "admin.stat_events_completed": "Завершених подій",
+        "admin.trend_chart_title": "Динаміка ваучерів за 30 днів",
+
         # ---------- рулетка ----------
         "roulette.title": "Рулетка",
         "roulette.sponsor_heading": "Рулетка від {sponsor}",
@@ -461,6 +473,17 @@ TRANSLATIONS = {
         "admin.confirm_delete_staff": "Delete staff member {username}? This action cannot be undone.",
         "admin.delete_staff_btn": "Delete account",
 
+        "admin.dashboard_title": "Dashboard",
+        "admin.stat_vouchers_issued_30d": "Vouchers issued (30 days)",
+        "admin.stat_vouchers_used": "Redeemed",
+        "admin.stat_vouchers_active": "Active",
+        "admin.stat_vouchers_expired": "Expired",
+        "admin.stat_unique_participants": "Unique participants",
+        "admin.stat_bets_placed": "Bets placed",
+        "admin.stat_total_payouts": "Total payouts",
+        "admin.stat_events_completed": "Events completed",
+        "admin.trend_chart_title": "Voucher activity over the last 30 days",
+
         "roulette.title": "Roulette",
         "roulette.sponsor_heading": "Roulette by {sponsor}",
         "roulette.sponsor_sub": "Prizes and vouchers provided by the sponsor",
@@ -719,6 +742,17 @@ TRANSLATIONS = {
         "admin.staff_username_taken": "Dieser Benutzername ist bereits vergeben",
         "admin.confirm_delete_staff": "Mitarbeiter {username} löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
         "admin.delete_staff_btn": "Konto löschen",
+
+        "admin.dashboard_title": "Dashboard",
+        "admin.stat_vouchers_issued_30d": "Ausgegebene Gutscheine (30 Tage)",
+        "admin.stat_vouchers_used": "Eingelöst",
+        "admin.stat_vouchers_active": "Aktiv",
+        "admin.stat_vouchers_expired": "Abgelaufen",
+        "admin.stat_unique_participants": "Eindeutige Teilnehmer",
+        "admin.stat_bets_placed": "Abgegebene Tipps",
+        "admin.stat_total_payouts": "Gesamtauszahlungen",
+        "admin.stat_events_completed": "Abgeschlossene Events",
+        "admin.trend_chart_title": "Gutschein-Aktivität der letzten 30 Tage",
 
         "roulette.title": "Roulette",
         "roulette.sponsor_heading": "Roulette von {sponsor}",
