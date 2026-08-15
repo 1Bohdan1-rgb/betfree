@@ -3,6 +3,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from datetime import datetime, timedelta, date
 from sqlalchemy import inspect, text
 from functools import wraps
+from urllib.parse import urlparse
 import random
 import math
 import os
@@ -369,8 +370,19 @@ def register():
     return render_template("register.html")
 
 
+def _is_safe_redirect_target(target):
+    """Захист від open-redirect: приймаємо лише відносні внутрішні шляхи
+    (напр. /event/5), ніколи абсолютні URL чи протокол-відносні //evil.com."""
+    if not target or not target.startswith("/"):
+        return False
+    parsed = urlparse(target)
+    return not parsed.netloc and not parsed.scheme
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    next_url = request.values.get("next", "")
+
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
@@ -379,7 +391,8 @@ def login():
 
         if user and user.check_password(password):
             login_user(user, remember=remember, duration=timedelta(days=REMEMBER_ME_DAYS))
-            response = redirect(url_for("dashboard"))
+            target = next_url if _is_safe_redirect_target(next_url) else url_for("dashboard")
+            response = redirect(target)
             if remember:
                 response.set_cookie(
                     REMEMBER_ME_COOKIE,
@@ -392,7 +405,7 @@ def login():
         flash(t("auth.invalid_credentials"))
 
     remembered_username = request.cookies.get(REMEMBER_ME_COOKIE, "")
-    return render_template("login.html", remembered_username=remembered_username)
+    return render_template("login.html", remembered_username=remembered_username, next=next_url)
 
 
 @app.route("/logout")
@@ -1135,6 +1148,13 @@ def dashboard():
     return render_template("dashboard.html", events=events, expiring_voucher=expiring_voucher)
 
 
+@app.route("/events")
+def public_events():
+    """Публічний список активних подій — без логіну, для шерингу/лендінгу."""
+    events = Event.query.filter_by(status="open").order_by(Event.match_date).all()
+    return render_template("public_events.html", events=events)
+
+
 # ---------- EVENTS (ADMIN / РЕКЛАМОДАВЕЦЬ) ----------
 
 def _parse_prize_type_fields(form, sponsor_spin_id):
@@ -1265,18 +1285,25 @@ def delete_event(event_id):
 
 
 @app.route("/event/<int:event_id>")
-@login_required
 def view_event(event_id):
+    """Публічна сторінка події — доступна без логіну (для шерингу в соцмережах).
+    Дії (ставка, редагування, розрахунок) лишаються захищеними на своїх роутах."""
     event = Event.query.get_or_404(event_id)
-    user_bet = Bet.query.filter_by(user_id=current_user.id, event_id=event_id).first()
+    user_bet = None
+    if current_user.is_authenticated:
+        user_bet = Bet.query.filter_by(user_id=current_user.id, event_id=event_id).first()
     return render_template("event.html", event=event, user_bet=user_bet)
 
 
 # ---------- BETTING ----------
 
 @app.route("/event/<int:event_id>/bet", methods=["POST"])
-@login_required
 def place_bet(event_id):
+    if not current_user.is_authenticated:
+        # повертаємо саме на сторінку події (не на цей POST-ендпоінт), щоб
+        # користувач не загубив намір поставити прогноз після логіну
+        return redirect(url_for("login", next=url_for("view_event", event_id=event_id)))
+
     event = Event.query.get_or_404(event_id)
 
     if event.status != "open":

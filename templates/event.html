@@ -1,7 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ event.title }}{% endblock %}
+{% block meta %}
+{% if event.prize_type == 'voucher' %}
+{% set og_prize = t('events.voucher_count_badge', count=event.voucher_count) %}
+{% elif event.prize_type == 'mixed' %}
+{% set og_prize = ("%.0f"|format(event.prize_pool)) ~ " " ~ t('common.coins_word') ~ " + " ~ t('events.voucher_count_badge', count=event.voucher_count) %}
+{% else %}
+{% set og_prize = ("%.0f"|format(event.prize_pool)) ~ " " ~ t('common.coins_word') %}
+{% endif %}
+{% set og_description = (event.description ~ " — " if event.description else "") ~ og_prize %}
+<meta name="description" content="{{ og_description }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BetFree">
+<meta property="og:title" content="{{ event.title }} — BetFree">
+<meta property="og:description" content="{{ og_description }}">
+<meta property="og:image" content="{{ event.sport_image }}">
+<meta property="og:url" content="{{ url_for('view_event', event_id=event.id, _external=True) }}">
+{% endblock %}
 {% block back_nav %}
-<a class="btn-back" href="{{ url_for('dashboard') }}">← {{ t('common.back') }}</a>
+<a class="btn-back" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('public_events') }}">← {{ t('common.back') }}</a>
 {% endblock %}
 {% block content %}
 
