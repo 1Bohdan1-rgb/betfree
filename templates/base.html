@@ -294,7 +294,7 @@
     {% if not hide_header %}
     <header>
         <div class="header-top">
-            <a href="{{ url_for('roulette') }}" class="brand">🎯 BetFree</a>
+            <a href="{{ url_for('dashboard') }}" class="brand">🎯 BetFree</a>
             {% if current_user.is_authenticated %}
             <a href="{{ url_for('profile') }}" class="balance" title="{{ t('nav.profile') }}">
                 <span class="wallet-icon">💰</span>{{ "%.2f"|format(current_user.balance) }}

@@ -439,9 +439,7 @@ def login():
 
         if user and user.check_password(password):
             login_user(user, remember=remember, duration=timedelta(days=REMEMBER_ME_DAYS))
-            # головна сторінка після входу — рулетка спонсора (MVP-фокус); next
-            # має пріоритет, щоб прямі посилання (напр. /event/<id>) не губились
-            target = next_url if _is_safe_redirect_target(next_url) else url_for("roulette")
+            target = next_url if _is_safe_redirect_target(next_url) else url_for("dashboard")
             response = redirect(target)
             if remember:
                 response.set_cookie(
